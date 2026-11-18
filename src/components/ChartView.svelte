@@ -58,7 +58,7 @@
   });
 
   onMount(async () => {
-    Plotly = (await import("plotly.js-dist-min")).default;
+    Plotly = (await import("plotly.js-basic-dist-min")).default;
   });
 
   /** 予測の列のうち、目的変数 name の予測平均の番号 */

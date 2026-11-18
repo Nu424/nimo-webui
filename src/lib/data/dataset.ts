@@ -27,7 +27,7 @@ export const colsOf = (ds: Dataset, role: Role) => ds.roles.flatMap((r, i) => (r
  * 列の役割を推測する。
  *  - 右端から連続して「空欄を含む列」が並んでいれば、それらを目的変数とみなす（nimo の流儀: 目的変数は末尾、未実験は空欄）
  *  - 空欄のない数値列 → 説明変数
- *  - それ以外（途中にある空欄を含む列・数値でない列）→ 使わない（利用者に選んでもらう）
+ *  - それ以外（途中にある空欄を含む列・数値でない列・結果から計算したらしい列）→ 使わない（利用者に選んでもらう）
  *  空欄の列が 1 つもなければ（全部実験済みのデータ）、末尾の列を目的変数とみなす。
  */
 export function guessRoles(t: Table): Role[] {
@@ -37,9 +37,18 @@ export function guessRoles(t: Table): Role[] {
   const yCols = new Set<number>();
   for (let c = n - 1; c >= 0 && hasBlank[c]; c--) yCols.add(c);
   if (yCols.size === 0) yCols.add(n - 1);
+  // 未実験の行（目的変数が空欄）では一定値なのに、実験済みの行でだけ値が変わる列は、
+  // 結果から計算した列（例: 生成物の合計）とみなして説明変数にしない
+  const pending = t.rows.filter((r) => [...yCols].every((c) => isBlank(r[c])));
+  const observed = t.rows.filter((r) => !pending.includes(r));
+  const derived = (c: number) => {
+    if (pending.length === 0 || observed.length === 0) return false;
+    const v0 = pending[0][c];
+    return pending.every((r) => r[c] === v0) && observed.some((r) => r[c] !== v0);
+  };
   return t.header.map((_, c) => {
     if (yCols.has(c)) return "y";
-    if (!hasBlank[c] && allNum[c]) return "x";
+    if (!hasBlank[c] && allNum[c] && !derived(c)) return "x";
     return "ignore";
   });
 }

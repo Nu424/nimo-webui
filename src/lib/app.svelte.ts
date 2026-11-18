@@ -62,6 +62,8 @@ class AppState {
   /** 入力タブで選択・表示したい行（グラフや提案からのジャンプ用） */
   focusRow = $state<{ row: number; nonce: number } | null>(null);
   savedAt = $state<Date | null>(null);
+  /** 読み込み直後に「列の役割を確認してください」と案内する */
+  showRoleNotice = $state(false);
   /** サンプルの真の値（仮想実験用）。利用者のファイルでは null */
   truth = $state.raw<Table | null>(null);
   restored = $state(false);
@@ -119,6 +121,7 @@ class AppState {
   load(name: string, text: string) {
     const table = parseTable(text);
     this.dataset = makeDataset(name, table);
+    this.showRoleNotice = true;
     this.truth = null;
     this.runs = [];
     this.tab = "input";

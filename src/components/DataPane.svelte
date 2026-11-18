@@ -40,6 +40,19 @@
       {/if}
     </div>
 
+    {#if app.showRoleNotice && app.tab === "input" && s}
+      <div class="notice">
+        <span>
+          🔎 列の役割を自動で決めました:
+          <span class="chip x">説明変数 {s.xCols.length}</span>
+          <span class="chip y">目的変数 {s.yCols.map((c) => app.dataset!.header[c]).join("・") || "なし"}</span>
+          {#if app.dataset.roles.some((r) => r === "ignore")}<span class="chip ignore">使わない {app.dataset.roles.filter((r) => r === "ignore").length}</span>{/if}
+          違っていれば、見出しのチップをクリックして直してください。
+        </span>
+        <button class="small" onclick={() => (app.showRoleNotice = false)}>OK</button>
+      </div>
+    {/if}
+
     <div class="body">
       {#if app.tab === "input"}
         <CandidateGrid />
@@ -97,6 +110,17 @@
   .spacer { flex: 1; }
   .legend { display: flex; align-items: center; gap: 6px; padding-bottom: 6px; }
   .toggle { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); margin-left: 6px; cursor: pointer; }
+  .notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: space-between;
+    padding: 7px 12px;
+    font-size: 12px;
+    background: var(--accent-weak);
+    border-bottom: 1px solid #d3dcfb;
+  }
+  .notice .chip { margin: 0 2px; }
   .body { flex: 1; min-height: 0; position: relative; }
   .status {
     display: flex;
