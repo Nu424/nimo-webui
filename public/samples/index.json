@@ -1,0 +1,38 @@
+[
+  {
+    "file": "synthesis_yield.csv",
+    "truth": "synthesis_yield.truth.csv",
+    "title": "合成条件の最適化",
+    "description": "温度・時間・濃度の 150 通りから、収率が最大になる条件を探す（目的変数 1 つ）",
+    "module": "PHYSBO",
+    "goal": "optimize",
+    "rows": 150
+  },
+  {
+    "file": "two_properties.csv",
+    "truth": "two_properties.truth.csv",
+    "title": "2 つの物性の両立（多目的）",
+    "description": "強度と導電率はトレードオフ。両方とも良い「パレート解」を探す（目的変数 2 つ）",
+    "module": "PHYSBO",
+    "goal": "optimize",
+    "rows": 121
+  },
+  {
+    "file": "ternary_phase.csv",
+    "truth": "ternary_phase.truth.csv",
+    "title": "三元系の相図",
+    "description": "A-B-C の組成 231 点で、どの組成がどの相（α/β/γ）になるかの境界を描く（目的変数はラベル）",
+    "module": "PDC",
+    "goal": "classify",
+    "rows": 231
+  },
+  {
+    "file": "combi_film.csv",
+    "truth": "combi_film.truth.csv",
+    "title": "組成傾斜膜の設計",
+    "description": "Pt-Pd-Ru の組成（%）から、活性が高い領域へ 2 元素の傾斜膜を提案する",
+    "module": "COMBI",
+    "goal": "combi",
+    "rows": 231
+  }
+]
