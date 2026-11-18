@@ -49,6 +49,13 @@ export function baseName(name: string): string {
   return name.replace(/\.[^.]+$/, "");
 }
 
+/** yyyymmddhhmmss（書き出しファイル名の時刻印） */
+export function timestamp(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${today()}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
 export function today(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");

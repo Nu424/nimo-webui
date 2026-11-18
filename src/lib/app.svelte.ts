@@ -1,7 +1,7 @@
 // アプリ全体の状態と操作。画面の部品はここを読み書きする。
 // 表のデータは大きくなりうるので $state.raw で持ち、編集時は version を進めて再描画を知らせる。
 import { get, set } from "idb-keyval";
-import { baseName, decode, downloadText, parseTable, today, toCsv, type Encoding, type Table } from "./data/csv";
+import { baseName, decode, downloadText, parseTable, timestamp, today, toCsv, type Encoding, type Table } from "./data/csv";
 import { buildNimoCsv, checkReady, isBlank, makeDataset, moduleContext, summarize, type Dataset, type Direction, type Role } from "./data/dataset";
 import { parseRun, type RunResult } from "./data/results";
 import { defaultParams, DEFAULT_MODULE, getModule, visibleOptions, type ParamValues } from "./modules";
@@ -254,16 +254,18 @@ class AppState {
   // ------------------------------------------------------------ リセット
   confirmRequest = $state<ConfirmRequest | null>(null);
 
+  /**
+   * リセットは必ず書き出してから行う（うっかり消しても、書き出した CSV を開き直せば戻せる）。
+   * 書き出し名には時刻を付けて、何度リセットしても上書きされないようにする
+   */
   askReset() {
-    if (!this.dataset) return;
+    const ds = this.dataset;
+    if (!ds) return;
+    const file = `${baseName(ds.name)}_${timestamp()}.csv`;
     this.confirmRequest = {
       title: "最初の画面に戻しますか？",
-      message:
-        "表・提案の履歴・手法の設定を消して、最初の画面に戻ります。\nブラウザに自動保存した内容も消えるので、必要なら先に表を書き出してください。",
-      actions: [
-        { label: "書き出してからリセット", run: () => (this.exportCandidates(), this.reset()) },
-        { label: "リセット", kind: "danger", run: () => this.reset() },
-      ],
+      message: `今の表を「${file}」として書き出してから、表・提案の履歴・手法の設定を消して最初の画面に戻ります。\n書き出したファイルを開けば、いつでも表の続きから始められます。`,
+      actions: [{ label: "書き出してリセット", kind: "primary", run: () => (this.exportCandidates(file), this.reset()) }],
     };
   }
 
@@ -278,7 +280,7 @@ class AppState {
     this.tab = "input";
     this.touch();
     this.save(); // すぐに保存して、再読み込みしても戻らないようにする
-    this.toast("info", "リセットしました");
+    this.toast("info", "表を書き出してリセットしました");
   }
 
   // ------------------------------------------------------------ 元に戻せる操作
@@ -547,10 +549,10 @@ class AppState {
   }
 
   // ------------------------------------------------------------ 書き出し
-  exportCandidates() {
+  exportCandidates(filename?: string) {
     const ds = this.dataset;
     if (!ds) return;
-    downloadText(`${baseName(ds.name)}.csv`, toCsv(ds), this.settings.bom);
+    downloadText(filename ?? `${baseName(ds.name)}.csv`, toCsv(ds), this.settings.bom);
   }
 
   exportProposals() {

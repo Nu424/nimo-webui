@@ -39,11 +39,11 @@
     vars = m === "append" ? fromDataset() : newDefaults();
   }
 
-  const KINDS: { kind: VarSpec["kind"]; label: string; hint: string }[] = [
-    { kind: "range", label: "範囲", hint: "最小〜最大を一定の刻みで" },
-    { kind: "list", label: "値の列挙", hint: "使う値をカンマ区切りで" },
-    { kind: "simplex", label: "組成（合計一定）", hint: "複数の元素の合計が一定" },
-    { kind: "blank", label: "空欄", hint: "値はあとで表に入力" },
+  const KINDS: { kind: VarSpec["kind"]; label: string }[] = [
+    { kind: "blank", label: "空欄（値はあとで入力）" },
+    { kind: "range", label: "範囲（最小〜最大）" },
+    { kind: "list", label: "値の列挙（カンマ区切り）" },
+    { kind: "simplex", label: "組成（合計一定）" },
   ];
   function blankOf(kind: VarSpec["kind"], name = ""): VarSpec {
     switch (kind) {
@@ -52,14 +52,15 @@
       case "list":
         return { kind, name, values: "" };
       case "simplex":
-        return { kind, names: "A, B, C", total: "1", step: "0.1", allowLess: false };
+        return { kind, names: name.includes(",") ? name : "A, B, C", total: "1", step: "0.1", allowLess: false };
       case "blank":
         return { kind, name };
     }
   }
-  const nameOf = (v: VarSpec) => (v.kind === "simplex" ? "" : v.name);
-  function add(kind: VarSpec["kind"]) {
-    vars = [...vars, blankOf(kind, kind === "simplex" ? "" : `変数${vars.length + 1}`)];
+  const nameOf = (v: VarSpec) => (v.kind === "simplex" ? v.names : v.name);
+  /** 列の追加は 1 つのボタンだけ。まず「空欄」で足し、種類はあとで切り替えてもらう */
+  function addColumn() {
+    vars = [...vars, blankOf("blank", `列${vars.length + 1}`)];
   }
   function changeKind(i: number, kind: VarSpec["kind"]) {
     vars[i] = blankOf(kind, nameOf(vars[i]));
@@ -107,38 +108,47 @@
 
       <h3><span class="chip x">説明変数</span> 実験条件</h3>
       <div class="vars">
+        <div class="vhead">
+          <span>列名</span>
+          <span>値の決め方</span>
+          <span>値</span>
+          <span>通り数</span>
+          <span></span>
+        </div>
         {#each vars as v, i}
           {@const c = countOf(v)}
           <div class="var">
-            <select value={v.kind} onchange={(e) => changeKind(i, (e.target as HTMLSelectElement).value as VarSpec["kind"])} title="値の決め方">
+            {#if v.kind === "simplex"}
+              <input bind:value={v.names} placeholder="元素をカンマ区切りで 例: Ag, Au, Pt" aria-label="列名（元素をカンマ区切り）" />
+            {:else}
+              <input bind:value={v.name} placeholder="列名" aria-label="列名" />
+            {/if}
+            <select value={v.kind} onchange={(e) => changeKind(i, (e.target as HTMLSelectElement).value as VarSpec["kind"])} aria-label="値の決め方">
               {#each KINDS as k}<option value={k.kind}>{k.label}</option>{/each}
             </select>
-            {#if v.kind === "simplex"}
-              <input class="names" bind:value={v.names} placeholder="元素（カンマ区切り）例: Ag, Au, Pt" />
-              <label>合計 <input class="n" bind:value={v.total} inputmode="decimal" /></label>
-              <label>刻み <input class="n" bind:value={v.step} inputmode="decimal" /></label>
-              <label class="chk" title="合計が指定値より小さい組み合わせも含める"><input type="checkbox" bind:checked={v.allowLess} /> 合計以下も含める</label>
-            {:else}
-              <input class="name" bind:value={v.name} placeholder="列名" />
-              {#if v.kind === "range"}
+            <div class="vals">
+              {#if v.kind === "simplex"}
+                <label>合計 <input class="n" bind:value={v.total} inputmode="decimal" /></label>
+                <label>刻み <input class="n" bind:value={v.step} inputmode="decimal" /></label>
+                <label class="chk" title="合計が指定値より小さい組み合わせも含める"><input type="checkbox" bind:checked={v.allowLess} /> 合計以下も含める</label>
+              {:else if v.kind === "range"}
                 <label>最小 <input class="n" bind:value={v.min} inputmode="decimal" /></label>
                 <label>最大 <input class="n" bind:value={v.max} inputmode="decimal" /></label>
                 <label>刻み <input class="n" bind:value={v.step} inputmode="decimal" /></label>
               {:else if v.kind === "list"}
-                <input class="list" bind:value={v.values} placeholder="値をカンマ区切りで 例: 1, 2, 4, 8" />
+                <input class="list" bind:value={v.values} placeholder="例: 1, 2, 4, 8" aria-label="値（カンマ区切り）" />
               {:else}
-                <span class="muted small">値はあとで表に入力（1 通りとして数えます）</span>
+                <span class="muted small">表を作ったあとで入力します</span>
               {/if}
-            {/if}
-            <span class="count" class:bad={typeof c === "string"} title={typeof c === "string" ? c : ""}>{typeof c === "number" ? `${c.toLocaleString()} 通り` : "⚠"}</span>
-            <button class="ghost small del" onclick={() => (vars = vars.filter((_, j) => j !== i))} aria-label="この変数を削除">✕</button>
+            </div>
+            <span class="count" class:bad={typeof c === "string"} title={typeof c === "string" ? c : ""}>{typeof c === "number" ? `${c.toLocaleString()} 通り` : "⚠ 要確認"}</span>
+            <button class="ghost small del" onclick={() => (vars = vars.filter((_, j) => j !== i))} aria-label="この列を削除" title="この列を削除">✕</button>
           </div>
         {/each}
       </div>
       <div class="adds">
-        {#each KINDS as k}
-          <button class="small" onclick={() => add(k.kind)} title={k.hint}>＋ {k.label}</button>
-        {/each}
+        <button class="small" onclick={addColumn}>＋ 列を追加</button>
+        <span class="muted small">追加した列は「空欄」で始まります。「値の決め方」を切り替えて範囲や値を入れてください</span>
       </div>
 
       {#if mode === "new"}
@@ -191,7 +201,7 @@
     border: none;
     border-radius: 12px;
     padding: 0;
-    width: min(860px, 94vw);
+    width: min(960px, 94vw);
     max-height: 90vh;
     box-shadow: 0 24px 64px rgba(16, 24, 40, 0.3);
   }
@@ -206,23 +216,15 @@
   .lead { margin: 0 0 6px; line-height: 1.7; font-size: 13px; }
   h3 { font-size: 13px; margin: 14px 0 8px; display: flex; align-items: center; gap: 8px; }
   .vars { display: grid; gap: 6px; }
-  .var {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fafbfd;
-    flex-wrap: wrap;
-  }
+  .vhead, .var { display: grid; grid-template-columns: 170px 200px minmax(0, 1fr) 64px 28px; gap: 8px; align-items: center; }
+  .vhead { font-size: 11px; font-weight: 600; color: var(--muted); padding: 0 9px; }
+  .var { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fafbfd; }
+  .vals { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
   .var label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
-  .name { width: 140px; }
-  .names { width: 180px; }
-  .n { width: 72px; text-align: right; }
+  .n { width: 64px; text-align: right; }
   .list { flex: 1; min-width: 200px; }
   .chk { cursor: pointer; }
-  .count { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .count { text-align: right; font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .count.bad { color: var(--err); font-weight: 700; }
   .del { color: var(--muted); }
   .adds { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
