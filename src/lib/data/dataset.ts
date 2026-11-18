@@ -133,7 +133,7 @@ export function checkReady(ds: Dataset, mod: ModuleDef, nProposals: number): Iss
   }
 
   if (s.nPartial > 0) {
-    out.push({ level: "warning", message: `目的変数の一部だけ入力された行が ${s.nPartial} 行あります。nimo はこれらを「未実験」として扱います。` });
+    out.push({ level: "warning", message: `目的変数の一部だけ入力された行が ${s.nPartial} 行あります。これらは「未実験」として扱います（入力済みの値は学習に使われません）。` });
   }
   if (s.nObserved < mod.minObserved) {
     out.push({
@@ -174,9 +174,14 @@ export function buildNimoCsv(ds: Dataset, mod: ModuleDef): { csv: string; negate
     mod.direction === "flag" ? ds.directions[c] === "min" : mod.direction === "minimizes" ? ds.directions[c] === "max" : false,
   );
   const header = [...s.xCols, ...s.yCols].map((c) => ds.header[c]);
-  const rows = ds.rows.map((r) => [
-    ...s.xCols.map((c) => r[c]),
-    ...s.yCols.map((c, k) => (negate[k] && isNum(r[c]) ? String(-Number(r[c])) : r[c])),
-  ]);
+  const rows = ds.rows.map((r, i) => {
+    // 目的変数が一部だけ入った行は「未実験」として渡す（nimo は最後の目的変数だけで未実験を判定するので、
+    // 途中の列が空欄のまま学習に使われないよう、目的変数をすべて空欄にそろえる）
+    const partial = rowState(ds, s.yCols, i) === "partial";
+    return [
+      ...s.xCols.map((c) => r[c]),
+      ...s.yCols.map((c, k) => (partial ? "" : negate[k] && isNum(r[c]) ? String(-Number(r[c])) : r[c])),
+    ];
+  });
   return { csv: Papa.unparse([header, ...rows], { newline: "\n" }), negate };
 }

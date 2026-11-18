@@ -26,7 +26,8 @@
 
   const ds = $derived(app.dataset!);
   const run = $derived(app.lastRun);
-  const preds = $derived(run?.predictions ?? null);
+  const preds = $derived(app.runStale ? null : (run?.predictions ?? null));
+  const escHtml = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
 
   const axes = $derived.by((): Axis[] => {
     app.version;
@@ -119,11 +120,11 @@
     const hover = (r: number) => {
       const parts = [`<b>行 ${r + 1}</b>${proposed.has(r) ? ` ★${proposed.get(r)}` : ""}`];
       ds.header.forEach((h, i) => {
-        if (ds.roles[i] !== "ignore") parts.push(`${h}: ${ds.rows[r][i] === "" ? "—" : ds.rows[r][i]}`);
+        if (ds.roles[i] !== "ignore") parts.push(`${escHtml(h)}: ${ds.rows[r][i] === "" ? "—" : escHtml(ds.rows[r][i])}`);
       });
       preds?.columns.forEach((c, k) => {
         const v = preds.byRow[r]?.[k];
-        if (v !== undefined && v !== "") parts.push(`<span style="color:#7c5cc4">${c.label}: ${typeof v === "number" ? v.toPrecision(4) : v}</span>`);
+        if (v !== undefined && v !== "") parts.push(`<span style="color:#7c5cc4">${escHtml(c.label)}: ${typeof v === "number" ? v.toPrecision(4) : escHtml(v)}</span>`);
       });
       return parts.join("<br>");
     };

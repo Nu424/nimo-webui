@@ -98,7 +98,12 @@
     {#each others as i}<div class="issue {i.level}">{i.message}</div>{/each}
   {/if}
 
-  {#if engine.status === "running"}
+  {#if app.busy && engine.status !== "running"}
+    <div class="running">
+      <span class="spinner"></span>
+      <span>Python の準備ができ次第、{app.module.id} を実行します…</span>
+    </div>
+  {:else if engine.status === "running"}
     <div class="running">
       <span class="spinner"></span>
       <span>{app.module.id} で計算中… {elapsed} 秒</span>
@@ -108,6 +113,7 @@
     <button
       class="primary go"
       disabled={!app.canRun || engine.status === "error"}
+      aria-busy={app.busy}
       onclick={() => app.run()}
       title={!app.dataset ? "まず候補表を開いてください" : "Ctrl+Enter でも実行できます"}
     >

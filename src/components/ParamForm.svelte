@@ -95,9 +95,9 @@
   <div class="field">
     <div class="label">{mod.proposesNewRows ? "傾斜の分割数（提案数）" : "提案数（次に実験する数）"}</div>
     <div class="stepper">
-      <button class="small" onclick={() => (app.nProposals = Math.max(1, app.nProposals - 1))} aria-label="減らす">−</button>
+      <button class="small" onclick={() => { app.nProposals = Math.max(1, (app.nProposals || 1) - 1); app.scheduleSave(); }} aria-label="減らす">−</button>
       <input type="number" min="1" bind:value={app.nProposals} onchange={() => app.scheduleSave()} />
-      <button class="small" onclick={() => (app.nProposals += 1)} aria-label="増やす">＋</button>
+      <button class="small" onclick={() => { app.nProposals = (app.nProposals || 0) + 1; app.scheduleSave(); }} aria-label="増やす">＋</button>
       <span class="muted help-inline">1 回の実験でまとめて試せる数</span>
     </div>
   </div>

@@ -6,12 +6,14 @@
   import { getModule } from "../lib/modules";
 
   const run = $derived(app.lastRun);
+  /** 表のセルの値（app.version を読んで、編集のたびに追従させる） */
+  const cell = (row: number, col: number) => (app.version >= 0 ? (ds.rows[row]?.[col] ?? "") : "");
   const ds = $derived(app.dataset!);
   const yCols = $derived((app.version, ds.roles.flatMap((r, i) => (r === "y" ? [i] : []))));
   const filled = $derived.by(() => {
     app.version;
     if (!run) return 0;
-    return run.proposals.filter((p) => p.row !== null && yCols.every((c) => !isBlank(ds.rows[p.row!][c]))).length;
+    return run.proposals.filter((p) => p.row !== null && yCols.every((c) => !isBlank(ds.rows[p.row!]?.[c]))).length;
   });
   const total = $derived(run?.proposals.filter((p) => p.row !== null).length ?? 0);
   const fmt = (v: unknown) => (typeof v === "number" ? (Math.abs(v) >= 1e4 || (Math.abs(v) < 1e-3 && v !== 0) ? v.toExponential(2) : v.toPrecision(4).replace(/\.?0+$/, "")) : String(v ?? ""));
@@ -48,6 +50,12 @@
       </div>
     </div>
 
+    {#if app.runStale}
+      <div class="note">
+        ⚠ この提案のあとで列の役割（説明変数・目的変数）が変わりました。表示は実行時の設定のままです。今の設定で提案し直すには、もう一度「提案を出す」を押してください。
+      </div>
+    {/if}
+
     {#each run.notes ?? [] as n}
       <div class="note">
         ⚠ {n}
@@ -64,11 +72,13 @@
           <b>✓ すべて入力しました。</b> 右下の「提案を出す」（<kbd>Ctrl</kbd>+<kbd>Enter</kbd>）で、次の提案へ進めます。
         {/if}
       </div>
-    {:else}
+    {:else if getModule(run.method).proposesNewRows}
       <div class="progress">
         この手法の提案は候補表にない新しい条件です。
         <button class="small" onclick={() => app.addNewProposalsToTable()}>＋ 候補表の末尾に追加して結果を入力する</button>
       </div>
+    {:else}
+      <div class="progress">提案を候補表の行に対応づけられませんでした。「nimo のログ」を確認してください。</div>
     {/if}
 
     <div class="table-wrap">
@@ -94,16 +104,15 @@
               {#each yCols as c}
                 <td class="yin">
                   {#if p.row !== null}
-                    {#key app.version}
-                      <input
-                        value={ds.rows[p.row][c]}
-                        placeholder="結果を入力"
-                        onchange={(e) => app.setCell(p.row!, c, (e.target as HTMLInputElement).value.trim())}
-                        onkeydown={(e) => {
-                          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                        }}
-                      />
-                    {/key}
+                    <!-- 値は version 経由で追従させる（入力欄を作り直すと Tab での連続入力が途切れるため） -->
+                    <input
+                      value={cell(p.row, c)}
+                      placeholder="結果を入力"
+                      onchange={(e) => app.setCell(p.row!, c, (e.target as HTMLInputElement).value.trim())}
+                      onkeydown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      }}
+                    />
                   {:else}
                     <span class="muted">—</span>
                   {/if}

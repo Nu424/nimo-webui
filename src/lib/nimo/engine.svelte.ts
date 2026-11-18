@@ -28,6 +28,7 @@ class NimoEngine {
     worker.onerror = (e) => {
       this.status = "error";
       this.errorMessage = e.message || "ワーカーの起動に失敗しました";
+      this.#rejectPending("Python の実行環境が停止しました。右上の表示をクリックして再読み込みしてください");
     };
     worker.postMessage({ type: "init", baseUrl: new URL("./", document.baseURI).href });
     this.#worker = worker;
@@ -85,19 +86,24 @@ class NimoEngine {
     });
   }
 
+  #rejectPending(message: string) {
+    for (const p of this.#pending.values()) p.reject(new Error(message));
+    this.#pending.clear();
+    this.runStartedAt = null;
+  }
+
   /** 実行中の計算を中断する（ワーカーを作り直す） */
   cancel() {
     this.#worker?.terminate();
     this.#worker = null;
-    for (const p of this.#pending.values()) p.reject(new Error("中断しました"));
-    this.#pending.clear();
-    this.runStartedAt = null;
+    this.#rejectPending("中断しました");
     this.start();
   }
 
   retry() {
     this.#worker?.terminate();
     this.#worker = null;
+    this.#rejectPending("中断しました");
     this.start();
   }
 }

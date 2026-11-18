@@ -21,7 +21,10 @@
 
   const ROLE_LABEL: Record<Role, string> = { x: "説明", y: "目的", ignore: "不使用" };
 
-  const preds = $derived(app.settings.showPredictions ? (app.lastRun?.predictions ?? null) : null);
+  // 列の役割を変えたあとの古い予測は出さない
+  const preds = $derived(app.settings.showPredictions && !app.runStale ? (app.lastRun?.predictions ?? null) : null);
+  /** 表に組み込み済みの予測（変わったら表のデータを作り直す） */
+  let shownPreds: typeof preds | undefined = undefined;
 
   function buildData() {
     const ds = app.dataset!;
@@ -121,6 +124,9 @@
       autoWrapRow: true,
       autoWrapCol: true,
       outsideClickDeselects: false,
+      // 行・列の追加は候補表のモデルと食い違うので禁止（範囲外への貼り付けは切り捨て）
+      allowInsertRow: false,
+      allowInsertColumn: false,
       afterRenderer(this: Handsontable, td, row, col) {
         // 行の状態・役割による色分け（cells で className を付けると編集時に再計算が多いので描画時に付ける）
         // コンストラクタ実行中にも呼ばれるので、hot ではなく this（インスタンス）を使う
@@ -136,6 +142,7 @@
           const col = Number(prop);
           if (col >= ds.header.length) continue;
           const phys = hot!.toPhysicalRow(row);
+          if (!ds.rows[phys]) continue;
           ds.rows[phys][col] = String(next ?? "").trim();
           changed = true;
         }
@@ -206,9 +213,11 @@
     app.proposedRows;
     if (!hot || !ds) return;
     untrack(() => {
-      if (v === selfVersion) {
+      if (v === selfVersion && shownPreds === preds) {
+        // 表自身の編集: データはもう反映済みなので、見出しと色だけ更新する
         hot!.updateSettings({ colHeaders: (c: number) => headerHtml(c), colWidths: colWidths() });
       } else {
+        shownPreds = preds;
         const s = settings();
         hot!.updateSettings({ colHeaders: s.colHeaders, colWidths: s.colWidths, columns: s.columns });
         hot!.updateData(s.data as unknown[][]);

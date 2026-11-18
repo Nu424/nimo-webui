@@ -4,7 +4,7 @@ import { get, set } from "idb-keyval";
 import { baseName, decode, downloadText, parseTable, today, toCsv, type Encoding, type Table } from "./data/csv";
 import { buildNimoCsv, checkReady, isBlank, makeDataset, moduleContext, summarize, type Dataset, type Direction, type Role } from "./data/dataset";
 import { parseRun, type RunResult } from "./data/results";
-import { defaultParams, DEFAULT_MODULE, getModule, type ParamValues } from "./modules";
+import { defaultParams, DEFAULT_MODULE, getModule, visibleOptions, type ParamValues } from "./modules";
 import { engine } from "./nimo/engine.svelte";
 
 export type Tab = "input" | "proposals" | "chart";
@@ -67,6 +67,10 @@ class AppState {
   /** サンプルの真の値（仮想実験用）。利用者のファイルでは null */
   truth = $state.raw<Table | null>(null);
   restored = $state(false);
+  /** ファイルを開くたびに進む番号。実行中に別のファイルを開いたら、戻ってきた結果を捨てるために使う */
+  #loadId = 0;
+  /** 実行ボタンを押してから結果が返るまで true（Python の準備待ちを含む）。二重実行を防ぐ */
+  busy = $state(false);
 
   // ------------------------------------------------------------ 派生値
   module = $derived(getModule(this.moduleId));
@@ -75,20 +79,34 @@ class AppState {
   params = $derived.by(() => {
     const ctx = this.context;
     if (!ctx) return {};
-    // 未設定の値は、データに合わせた初期値で補う
-    return { ...defaultParams(this.module, ctx), ...(this.paramsByModule[this.moduleId] ?? {}) };
+    // 未設定の値は、データに合わせた初期値で補う。保存値が今のデータに合わない（選択肢にない・列数が違う）なら初期値を使う
+    const defaults = defaultParams(this.module, ctx);
+    const saved = this.paramsByModule[this.moduleId] ?? {};
+    const out: ParamValues = { ...defaults };
+    for (const p of this.module.params) {
+      const v = saved[p.key];
+      if (v === undefined) continue;
+      if (p.kind === "select" && !visibleOptions(this.module, p, ctx).some((o) => o.value === v)) continue;
+      if (p.kind === "ranges" && (v as unknown[]).length !== ctx.yCols.length) continue;
+      if (p.kind === "colRanges" && (v as unknown[]).length !== ctx.xCols.length) continue;
+      if ((p.kind === "columns" || p.kind === "pairs") && (v as number[] | number[][]).flat().some((i) => i >= ctx.xCols.length)) continue;
+      out[p.key] = v;
+    }
+    return out;
   });
   issues = $derived.by(() => {
     this.version;
     if (!this.dataset || !this.context) return [];
     const out = checkReady(this.dataset, this.module, this.nProposals);
+    if (!Number.isInteger(this.nProposals) || this.nProposals < 1) out.unshift({ level: "error" as const, message: "提案数は 1 以上の整数にしてください。" });
     const msg = this.module.validate?.(this.params, this.context);
     if (msg) out.push({ level: "error" as const, message: msg });
     // 状態を持ち回る手法（SLESA）は、前回の提案がすべて測定済みでないと続けられない
     if (this.module.stateful) {
       const prev = [...this.runs].reverse().find((r) => r.method === this.module.id);
-      const ys = this.summary?.yCols ?? [];
-      const missing = (prev?.proposals ?? []).filter((p) => p.row !== null && ys.some((c) => isBlank(this.dataset!.rows[p.row!][c])));
+      const ds = this.dataset;
+      const ys = (prev?.yNames ?? []).map((n) => ds.header.indexOf(n)).filter((c) => c >= 0);
+      const missing = (prev?.proposals ?? []).filter((p) => p.row !== null && ys.some((c) => isBlank(ds.rows[p.row!]?.[c])));
       if (missing.length)
         out.push({
           level: "error" as const,
@@ -98,9 +116,17 @@ class AppState {
     return out;
   });
   lastRun = $derived(this.runs.at(-1) ?? null);
-  /** 最新の提案に含まれる行番号 → 順位 */
+  /** 直近の実行のあとで列の役割が変わり、提案・予測が今の設定と合わなくなっている */
+  runStale = $derived.by(() => {
+    const run = this.lastRun;
+    const ctx = this.context;
+    if (!run || !ctx) return false;
+    return run.xNames.join("\u0000") !== ctx.xCols.join("\u0000") || run.yNames.join("\u0000") !== ctx.yCols.join("\u0000");
+  });
+  /** 最新の提案に含まれる行番号 → 順位（古い結果なら空） */
   proposedRows = $derived.by(() => {
     const m = new Map<number, number>();
+    if (this.runStale) return m;
     for (const p of this.lastRun?.proposals ?? []) if (p.row !== null) m.set(p.row, p.rank);
     return m;
   });
@@ -120,7 +146,11 @@ class AppState {
 
   load(name: string, text: string) {
     const table = parseTable(text);
+    this.#loadId++;
+    this.restored = true; // 復元より後に開いたファイルを優先する
     this.dataset = makeDataset(name, table);
+    this.paramsByModule = {};
+    this.lastError = null;
     this.showRoleNotice = true;
     this.truth = null;
     this.runs = [];
@@ -130,12 +160,20 @@ class AppState {
   }
 
   async openSample(s: SampleInfo) {
-    const url = (f: string) => new URL(`samples/${f}`, document.baseURI);
-    const [text, truth] = await Promise.all([fetch(url(s.file)).then((r) => r.text()), fetch(url(s.truth)).then((r) => r.text())]);
-    this.load(s.file, text);
-    this.truth = parseTable(truth);
-    this.selectModule(s.module);
-    this.toast("success", `サンプル「${s.title}」を開きました`);
+    const get = async (f: string) => {
+      const r = await fetch(new URL(`samples/${f}`, document.baseURI));
+      if (!r.ok) throw new Error(`${f} を取得できませんでした（${r.status}）`);
+      return r.text();
+    };
+    try {
+      const [text, truth] = await Promise.all([get(s.file), get(s.truth)]);
+      this.load(s.file, text);
+      this.truth = parseTable(truth);
+      this.selectModule(s.module);
+      this.toast("success", `サンプル「${s.title}」を開きました`);
+    } catch (e) {
+      this.toast("error", `サンプルを開けませんでした: ${e instanceof Error ? e.message : e}`);
+    }
   }
 
   /**
@@ -148,8 +186,12 @@ class AppState {
     const run = this.lastRun;
     if (!ds || !truth || !run) return;
     let n = 0;
+    let noTruth = 0;
     for (const p of run.proposals) {
-      if (p.row === null) continue;
+      if (p.row === null || p.row >= truth.rows.length) {
+        noTruth++;
+        continue;
+      }
       truth.header.forEach((name, k) => {
         const c = ds.header.indexOf(name);
         if (c >= 0 && ds.rows[p.row!][c] === "") {
@@ -159,10 +201,13 @@ class AppState {
       });
     }
     this.touch();
-    this.toast("success", n > 0 ? `仮想実験の結果を ${n} マスに入れました。もう一度「実行」で次の提案へ` : "入れる場所がありませんでした（入力済み）");
+    if (n > 0) this.toast("success", `仮想実験の結果を ${n} マスに入れました。もう一度「提案を出す」で次の提案へ`);
+    else if (noTruth > 0) this.toast("info", "この提案はサンプルの候補にない新しい条件なので、仮想実験の値がありません");
+    else this.toast("info", "すべて入力済みです");
   }
 
   close() {
+    this.#loadId++;
     this.dataset = null;
     this.truth = null;
     this.runs = [];
@@ -202,12 +247,13 @@ class AppState {
   setCell(row: number, col: number, value: string) {
     const ds = this.dataset;
     if (!ds) return;
+    if (!ds.rows[row]) return;
     ds.rows[row][col] = value;
     this.touch();
   }
 
   setParam(key: string, value: ParamValues[string]) {
-    this.paramsByModule = { ...this.paramsByModule, [this.moduleId]: { ...this.params, [key]: value } };
+    this.paramsByModule = { ...this.paramsByModule, [this.moduleId]: { ...(this.paramsByModule[this.moduleId] ?? {}), [key]: value } };
     this.scheduleSave();
   }
 
@@ -222,15 +268,20 @@ class AppState {
   }
 
   // ------------------------------------------------------------ 実行
-  canRun = $derived(!!this.dataset && !this.issues.some((i) => i.level === "error") && engine.status !== "running");
+  canRun = $derived(!!this.dataset && !this.issues.some((i) => i.level === "error") && !this.busy);
 
   async run() {
     const ds = this.dataset;
     if (!ds || !this.canRun || !this.context) return;
+    this.busy = true; // 押した瞬間に固定（Python の準備待ちの間に何度押されても 1 回だけ）
+    const loadId = this.#loadId;
     const mod = this.module;
     const ctx = this.context;
-    const { csv, negate } = buildNimoCsv(ds, mod);
+    // 実行中に表が編集されても結果の対応づけがずれないよう、実行時点の表を写しておく
+    const snapshot: Dataset = { ...ds, rows: ds.rows.map((r) => [...r]) };
+    const { csv, negate } = buildNimoCsv(snapshot, mod);
     const options = mod.toOptions(this.params, ctx, this.seed);
+    const nProposals = this.nProposals;
     // SLESA は前回の状態ファイルを引き継ぐ
     const prev = mod.stateful ? [...this.runs].reverse().find((r) => r.method === mod.id) : undefined;
     try {
@@ -238,19 +289,24 @@ class AppState {
         method: mod.id,
         csv,
         num_objectives: ctx.nObjectives,
-        num_proposals: this.nProposals,
+        num_proposals: nProposals,
         options,
         state_files: prev?.stateFiles,
         seed: this.seed,
       });
+      if (loadId !== this.#loadId) {
+        this.toast("info", "計算中に別のファイルが開かれたため、結果を破棄しました");
+        return;
+      }
       if (!res.ok) {
-        this.toast("error", `${mod.id} の実行に失敗しました。下の「ログ」に詳細があります。`);
         this.lastError = { method: mod.id, message: res.error ?? "", log: res.log };
+        this.tab = "proposals";
+        this.toast("error", `${mod.id} の実行に失敗しました。「提案」タブに理由を表示しています。`);
         return;
       }
       this.lastError = null;
-      const settingsText = describeSettings(options, this.nProposals);
-      const result = parseRun(ds, mod, res, negate, settingsText);
+      const settingsText = describeSettings(options, nProposals);
+      const result = parseRun(snapshot, mod, res, negate, settingsText);
       this.runs = [...this.runs, result];
       this.tab = "proposals";
       this.toast("success", `${result.proposals.length} 件の提案が出ました（${res.seconds.toFixed(1)} 秒）`);
@@ -258,6 +314,8 @@ class AppState {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       this.toast(msg === "中断しました" ? "info" : "error", msg);
+    } finally {
+      this.busy = false;
     }
   }
 
@@ -267,7 +325,8 @@ class AppState {
   addNewProposalsToTable() {
     const ds = this.dataset;
     const run = this.lastRun;
-    if (!ds || !run) return;
+    if (!ds || !run || !run.proposals.some((p) => p.row === null)) return;
+    const added = run.proposals.filter((p) => p.row === null).length;
     const proposals = run.proposals.map((p) => {
       if (p.row !== null) return p;
       const row = ds.header.map((h) => {
@@ -279,7 +338,7 @@ class AppState {
     });
     this.runs = [...this.runs.slice(0, -1), { ...run, proposals }];
     this.touch();
-    this.toast("success", `${proposals.length} 行を候補表の末尾に追加しました。結果を入力してください`);
+    this.toast("success", `${added} 行を候補表の末尾に追加しました。結果を入力してください`);
   }
 
   // ------------------------------------------------------------ 書き出し
@@ -339,7 +398,7 @@ class AppState {
   async restore() {
     try {
       const s = (await get(STORAGE_KEY)) as Saved | undefined;
-      if (s) {
+      if (s && !this.restored) {
         this.dataset = s.dataset;
         this.moduleId = s.moduleId ?? DEFAULT_MODULE;
         this.paramsByModule = s.paramsByModule ?? {};

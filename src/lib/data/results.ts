@@ -2,7 +2,7 @@
 import Papa from "papaparse";
 import type { RunResponse } from "../nimo/protocol";
 import type { ModuleDef } from "../modules";
-import { isNum, summarize, type Dataset } from "./dataset";
+import { isBlank, isNum, summarize, type Dataset } from "./dataset";
 
 export type PredKind = "mean" | "sd" | "acq" | "prob" | "label" | "other";
 
@@ -64,11 +64,14 @@ export function parseRun(
   });
 
   // --- 予測: 多くの手法は「nimo が未実験とみなした行」だけを元の順で出力する。
-  // nimo の未実験 = 末尾（最後の目的変数）の列が空欄・非数の行
-  const lastY = s.yCols[s.yCols.length - 1];
+  // buildNimoCsv が一部だけ入力された行の目的変数を空欄にそろえているので、
+  // nimo の未実験 = 目的変数がすべてそろっていない行（ラベルなら空欄、数値なら非数を含む）
   const testRows: number[] = [];
   const trainRows: number[] = [];
-  ds.rows.forEach((r, i) => ((mod.objectiveKind === "label" ? (r[lastY] ?? "").trim() !== "" : isNum(r[lastY])) ? trainRows : testRows).push(i));
+  ds.rows.forEach((r, i) => {
+    const done = s.yCols.every((c) => (mod.objectiveKind === "label" ? !isBlank(r[c]) : isNum(r[c])));
+    (done ? trainRows : testRows).push(i);
+  });
 
   let predictions: RunResult["predictions"] = null;
   const out = res.files["output_res.csv"];
@@ -168,13 +171,15 @@ function describe(mod: ModuleDef, name: string, _k: number, yNames: string[], cl
     return null;
   }
   if (yi >= 0) {
-    const label = mod.id === "SLESA" ? `予測（規格化）: ${name}` : mod.id === "RSVM" ? "スコア" : `予測: ${name}`;
-    return { col: { label, kind: "mean", target: name }, negateIndex: mod.id === "SLESA" ? undefined : yi, numeric: true };
+    // SLESA の予測は 0〜1 に規格化した「エネルギー」（小さいほど良い）で、目的変数の単位ではない
+    if (mod.id === "SLESA") return { col: { label: `予測エネルギー（規格化）: ${name}`, kind: "other" }, numeric: true };
+    return { col: { label: `予測: ${name}`, kind: "mean", target: name }, negateIndex: yi, numeric: true };
   }
   const v = name.match(/^variance(\d*)$/);
   if (v) {
     const i = v[1] === "" ? 0 : Number(v[1]);
     const y = yNames[i] ?? yNames[0];
+    if (mod.id === "SLESA") return { col: { label: `不確かさ σ（規格化）: ${y}`, kind: "other" }, sqrt: true, numeric: true };
     return { col: { label: `不確かさ σ: ${y}`, kind: "sd", target: y }, sqrt: true, numeric: true };
   }
   if (name === "acquisition") return { col: { label: mod.id === "RSVM" ? "スコア" : "獲得関数", kind: "acq" }, numeric: true };

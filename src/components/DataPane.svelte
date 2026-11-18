@@ -33,8 +33,8 @@
           <span class="chip y">目的変数</span>
           <span class="chip ignore">使わない</span>
           {#if app.proposedRows.size}<span class="chip proposal">★ 提案</span>{/if}
-          {#if app.lastRun?.predictions}
-            <label class="toggle"><input type="checkbox" bind:checked={app.settings.showPredictions} /> 予測を表示</label>
+          {#if app.lastRun?.predictions && !app.runStale}
+            <label class="toggle"><input type="checkbox" bind:checked={app.settings.showPredictions} onchange={() => app.scheduleSave()} /> 予測を表示</label>
           {/if}
         </div>
       {/if}
