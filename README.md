@@ -101,6 +101,7 @@ pip download --no-deps nimo==2.1.8 pydoe3==1.6.2 -d .
 
 ## ライセンス・出典
 
+- このリポジトリのコードは MIT ライセンスです（`LICENSE`）。同梱・利用しているライブラリはそれぞれのライセンスに従います
 - 同梱している wheel は無改変で、各ライセンス文書は wheel 内に含まれています: [NIMO](https://github.com/NIMS-DA/nimo)（MIT）、[PHYSBO](https://github.com/issp-center-dev/PHYSBO)（MPL-2.0）、[ODAT-SE](https://github.com/issp-center-dev/ODAT-SE)（MPL-2.0）、[pyDOE3](https://github.com/relf/pyDOE3)（BSD-3-Clause）
 - Python 本体と数値計算ライブラリは [Pyodide](https://pyodide.org/) の CDN から読み込みます
 - 表のエディタに [Handsontable](https://handsontable.com/) を非商用ライセンス（`non-commercial-and-evaluation`）で使っています。商用目的で使う場合は Handsontable のライセンスが別途必要です
