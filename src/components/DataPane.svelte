@@ -69,10 +69,10 @@
         <span class="dot ok"></span><span>実験済み {s.nObserved}</span>
         <span class="dot pending"></span><span>未実験 {s.nPending}</span>
         {#if s.nPartial}<span class="dot partial"></span><span>一部のみ {s.nPartial}</span>{/if}
+        {#if s.nEmpty}<span class="dot empty"></span><span>空の行 {s.nEmpty}</span>{/if}
         <span class="sep">|</span>
         <span>説明変数 {s.xCols.length}・目的変数 {s.yCols.length}</span>
-        <span class="grow"></span>
-        <span class="hint muted">見出しのチップで役割を切替 ・ 右クリックでメニュー ・ <kbd>Ctrl</kbd>+<kbd>Z</kbd> で元に戻す</span>
+
       </footer>
     {/if}
   </div>
@@ -136,8 +136,6 @@
   .dot.ok { background: var(--ok); }
   .dot.pending { background: var(--line-strong); }
   .dot.partial { background: var(--warn); }
+  .dot.empty { background: #fff; border: 1px solid var(--line-strong); }
   .sep { color: var(--line-strong); margin: 0 4px; }
-  .grow { flex: 1; }
-  .hint { font-size: 11px; }
-  @media (max-width: 1300px) { .hint { display: none; } }
 </style>

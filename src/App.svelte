@@ -7,6 +7,8 @@
   import SidePanel from "./components/SidePanel.svelte";
   import Toasts from "./components/Toasts.svelte";
   import HelpDialog from "./components/HelpDialog.svelte";
+  import ConfirmDialog from "./components/ConfirmDialog.svelte";
+  import GeneratorDialog from "./components/GeneratorDialog.svelte";
 
   // ページを開いた瞬間から Python の準備を裏で始める（初回は数十秒かかるため）
   onMount(() => {
@@ -74,6 +76,8 @@
 
 <Toasts />
 {#if app.helpOpen}<HelpDialog />{/if}
+{#if app.generatorOpen}<GeneratorDialog />{/if}
+{#if app.confirmRequest}<ConfirmDialog />{/if}
 
 <style>
   .shell { display: flex; flex-direction: column; height: 100vh; }

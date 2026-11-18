@@ -51,6 +51,8 @@ export function parseRun(
   res: RunResponse & { seconds: number },
   negate: boolean[],
   settingsText: string,
+  /** nimo に渡した行（included[nimo の行番号] = 元の表の行番号）。省略時は全行 */
+  included: number[] = ds.rows.map((_, i) => i),
 ): RunResult {
   const s = summarize(ds);
   const xNames = s.xCols.map((c) => ds.header[c]);
@@ -60,7 +62,7 @@ export function parseRun(
   const prop = parse(res.files["proposals.csv"] ?? "");
   const proposals: Proposal[] = prop.slice(1).map((r, i) => {
     const a = Number(r[0]);
-    return { rank: i + 1, row: Number.isInteger(a) && a >= 0 && a < ds.rows.length ? a : null, values: r.slice(1) };
+    return { rank: i + 1, row: Number.isInteger(a) && a >= 0 && a < included.length ? included[a] : null, values: r.slice(1) };
   });
 
   // --- 予測: 多くの手法は「nimo が未実験とみなした行」だけを元の順で出力する。
@@ -68,7 +70,8 @@ export function parseRun(
   // nimo の未実験 = 目的変数がすべてそろっていない行（ラベルなら空欄、数値なら非数を含む）
   const testRows: number[] = [];
   const trainRows: number[] = [];
-  ds.rows.forEach((r, i) => {
+  included.forEach((i) => {
+    const r = ds.rows[i];
     const done = s.yCols.every((c) => (mod.objectiveKind === "label" ? !isBlank(r[c]) : isNum(r[c])));
     (done ? trainRows : testRows).push(i);
   });
@@ -90,8 +93,8 @@ export function parseRun(
     const columns = keep.map((e) => e.d!.col);
 
     const rowOf = (i: number, r: string[]): number | null => {
-      if (hasActions) return Number(r[0]);
-      if (body.length === ds.rows.length) return i;
+      if (hasActions) return included[Number(r[0])] ?? null;
+      if (body.length === included.length) return included[i];
       if (body.length === testRows.length) return testRows[i];
       return null;
     };

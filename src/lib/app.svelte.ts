@@ -23,7 +23,20 @@ interface Toast {
   id: number;
   kind: "info" | "success" | "error";
   text: string;
+  /** 通知の中に置くボタン（「元に戻す」など） */
+  action?: { label: string; run: () => void };
 }
+
+/** アプリ内の確認ダイアログ（ブラウザの confirm は使わない） */
+export interface ConfirmRequest {
+  title: string;
+  message: string;
+  /** 文字入力欄を出す（列名の変更など） */
+  input?: { label: string; value: string };
+  actions: { label: string; kind?: "primary" | "danger"; run: (input: string) => void }[];
+}
+
+const SEEN_INPUT_HELP = "nimo-webui:seen-input-help";
 
 interface Saved {
   dataset: Dataset | null;
@@ -139,13 +152,17 @@ class AppState {
       this.encoding = encoding;
       const enc = encoding === "shift_jis" ? "（Shift_JIS として読み込みました）" : "";
       this.toast("success", `${file.name} を開きました${enc}`);
+      this.#showInputHelpOnce();
     } catch (e) {
       this.toast("error", `読み込めませんでした: ${e instanceof Error ? e.message : e}`);
     }
   }
 
   load(name: string, text: string) {
-    const table = parseTable(text);
+    this.loadTable(name, parseTable(text));
+  }
+
+  loadTable(name: string, table: Table) {
     this.#loadId++;
     this.restored = true; // 復元より後に開いたファイルを優先する
     this.dataset = makeDataset(name, table);
@@ -214,6 +231,194 @@ class AppState {
     this.touch();
   }
 
+  /** 初めて自分のファイルを開いた（作った）ときだけ、使い方の「入力ファイルの作り方」を開く */
+  #showInputHelpOnce() {
+    try {
+      if (localStorage.getItem(SEEN_INPUT_HELP)) return;
+      localStorage.setItem(SEEN_INPUT_HELP, "1");
+    } catch {
+      return; // 記録できない環境では毎回出さない
+    }
+    this.helpOpen = "input";
+  }
+
+  /** 候補の生成などで作った表を開く（役割は作成時に決まっている） */
+  createTable(name: string, table: Table, roles: Role[]) {
+    this.loadTable(name, table);
+    this.dataset = { ...this.dataset!, roles };
+    this.showRoleNotice = false;
+    this.touch();
+    this.#showInputHelpOnce();
+  }
+
+  // ------------------------------------------------------------ リセット
+  confirmRequest = $state<ConfirmRequest | null>(null);
+
+  askReset() {
+    if (!this.dataset) return;
+    this.confirmRequest = {
+      title: "最初の画面に戻しますか？",
+      message:
+        "表・提案の履歴・手法の設定を消して、最初の画面に戻ります。\nブラウザに自動保存した内容も消えるので、必要なら先に表を書き出してください。",
+      actions: [
+        { label: "書き出してからリセット", run: () => (this.exportCandidates(), this.reset()) },
+        { label: "リセット", kind: "danger", run: () => this.reset() },
+      ],
+    };
+  }
+
+  reset() {
+    this.#loadId++;
+    this.dataset = null;
+    this.truth = null;
+    this.runs = [];
+    this.paramsByModule = {};
+    this.lastError = null;
+    this.showRoleNotice = false;
+    this.tab = "input";
+    this.touch();
+    this.save(); // すぐに保存して、再読み込みしても戻らないようにする
+    this.toast("info", "リセットしました");
+  }
+
+  // ------------------------------------------------------------ 元に戻せる操作
+  /**
+   * 表の構造を変える操作（行・列の削除、候補の追加など）の前に状態を写し、
+   * 通知の「元に戻す」で復元できるようにする。Handsontable の Ctrl+Z はセルの編集だけが対象。
+   */
+  #undoable(message: string, fn: () => void) {
+    const ds = this.dataset;
+    if (!ds) return;
+    const before = { dataset: { ...ds, header: [...ds.header], roles: [...ds.roles], directions: [...ds.directions], rows: ds.rows.map((r) => [...r]) }, runs: this.runs };
+    const loadId = this.#loadId;
+    fn();
+    this.toast("success", message, {
+      label: "元に戻す",
+      run: () => {
+        if (loadId !== this.#loadId) return;
+        this.dataset = before.dataset;
+        this.runs = before.runs;
+        this.touch();
+        this.toast("info", "元に戻しました");
+      },
+    });
+  }
+
+  // ------------------------------------------------------------ 行・列の操作
+  addRows(n: number) {
+    const ds = this.dataset;
+    if (!ds || !(n >= 1)) return;
+    const count = Math.min(Math.floor(n), 10000);
+    for (let i = 0; i < count; i++) ds.rows.push(ds.header.map(() => ""));
+    this.touch();
+    this.jumpToRow(ds.rows.length - count);
+  }
+
+  deleteRows(rows: number[]) {
+    const ds = this.dataset;
+    if (!ds) return;
+    const del = new Set(rows.filter((r) => r >= 0 && r < ds.rows.length));
+    if (del.size === 0) return;
+    if (del.size === ds.rows.length) {
+      this.toast("error", "すべての行は削除できません（1 行は残してください）");
+      return;
+    }
+    this.#undoable(`${del.size} 行を削除しました`, () => {
+      // 旧行番号 → 新行番号
+      const map = new Map<number, number>();
+      let k = 0;
+      ds.rows.forEach((_, i) => (del.has(i) ? null : map.set(i, k++)));
+      this.dataset = { ...ds, rows: ds.rows.filter((_, i) => !del.has(i)) };
+      // 提案・予測の行番号を詰め直す（消えた行の提案は外す）。SLESA の状態は行番号を含むので引き継がない
+      this.runs = this.runs.map((r) => ({
+        ...r,
+        proposals: r.proposals.filter((p) => p.row === null || map.has(p.row)).map((p) => ({ ...p, row: p.row === null ? null : map.get(p.row)! })),
+        predictions: r.predictions && {
+          ...r.predictions,
+          byRow: Object.fromEntries(Object.entries(r.predictions.byRow).flatMap(([i, v]) => (map.has(Number(i)) ? [[map.get(Number(i))!, v]] : []))),
+        },
+        stateFiles: {},
+      }));
+      this.touch();
+    });
+  }
+
+  addColumn(after: number) {
+    const ds = this.dataset;
+    if (!ds) return;
+    this.askText("列を追加", "新しい列の名前", `列${ds.header.length + 1}`, (name) => {
+      const at = Math.min(after + 1, ds.header.length);
+      const ins = <T>(a: T[], v: T) => [...a.slice(0, at), v, ...a.slice(at)];
+      this.dataset = {
+        ...ds,
+        header: ins(ds.header, this.#uniqueName(name)),
+        roles: ins(ds.roles, "x" as Role),
+        directions: ins(ds.directions, "max" as Direction),
+        rows: ds.rows.map((r) => ins(r, "")),
+      };
+      this.touch();
+    });
+  }
+
+  renameColumn(col: number) {
+    const ds = this.dataset;
+    if (!ds) return;
+    this.askText("列名を変更", "新しい列名", ds.header[col], (name) => {
+      if (name === ds.header[col]) return;
+      const header = [...ds.header];
+      header[col] = this.#uniqueName(name);
+      this.dataset = { ...ds, header };
+      this.touch();
+    });
+  }
+
+  deleteColumn(col: number) {
+    const ds = this.dataset;
+    if (!ds) return;
+    if (ds.header.length <= 1) {
+      this.toast("error", "最後の列は削除できません");
+      return;
+    }
+    const name = ds.header[col];
+    this.#undoable(`列「${name}」を削除しました`, () => {
+      const cut = <T>(a: T[]) => a.filter((_, i) => i !== col);
+      this.dataset = { ...ds, header: cut(ds.header), roles: cut(ds.roles), directions: cut(ds.directions), rows: ds.rows.map(cut) };
+      this.touch();
+    });
+  }
+
+  /** 生成した行を今の表の末尾に追加する（元に戻せる） */
+  appendRows(rows: string[][], message: string) {
+    const ds = this.dataset;
+    if (!ds || rows.length === 0) return;
+    this.#undoable(message, () => {
+      this.dataset = { ...ds, rows: [...ds.rows, ...rows] };
+      this.touch();
+    });
+    this.jumpToRow(ds.rows.length);
+  }
+
+  #uniqueName(name: string) {
+    const used = new Set(this.dataset?.header ?? []);
+    const base = name.trim() || "列";
+    if (!used.has(base)) return base;
+    let i = 2;
+    while (used.has(`${base}_${i}`)) i++;
+    return `${base}_${i}`;
+  }
+
+  askText(title: string, label: string, value: string, onOk: (v: string) => void) {
+    this.confirmRequest = {
+      title,
+      message: "",
+      input: { label, value },
+      actions: [{ label: "OK", kind: "primary", run: (v) => v.trim() && onOk(v.trim()) }],
+    };
+  }
+
+  /** 候補の生成ダイアログ（new: 新しい表として作る / append: 今の表に追加） */
+  generatorOpen = $state<"new" | "append" | null>(null);
+
   // ------------------------------------------------------------ 編集
   touch() {
     this.version++;
@@ -279,7 +484,7 @@ class AppState {
     const ctx = this.context;
     // 実行中に表が編集されても結果の対応づけがずれないよう、実行時点の表を写しておく
     const snapshot: Dataset = { ...ds, rows: ds.rows.map((r) => [...r]) };
-    const { csv, negate } = buildNimoCsv(snapshot, mod);
+    const { csv, negate, included } = buildNimoCsv(snapshot, mod);
     const options = mod.toOptions(this.params, ctx, this.seed);
     const nProposals = this.nProposals;
     // SLESA は前回の状態ファイルを引き継ぐ
@@ -306,7 +511,7 @@ class AppState {
       }
       this.lastError = null;
       const settingsText = describeSettings(options, nProposals);
-      const result = parseRun(snapshot, mod, res, negate, settingsText);
+      const result = parseRun(snapshot, mod, res, negate, settingsText, included);
       this.runs = [...this.runs, result];
       this.tab = "proposals";
       this.toast("success", `${result.proposals.length} 件の提案が出ました（${res.seconds.toFixed(1)} 秒）`);
@@ -361,10 +566,15 @@ class AppState {
   }
 
   // ------------------------------------------------------------ 通知
-  toast(kind: Toast["kind"], text: string) {
+  toast(kind: Toast["kind"], text: string, action?: Toast["action"]) {
     const id = Date.now() + Math.random();
-    this.toasts = [...this.toasts, { id, kind, text }];
-    setTimeout(() => (this.toasts = this.toasts.filter((t) => t.id !== id)), kind === "error" ? 8000 : 4000);
+    this.toasts = [...this.toasts, { id, kind, text, action }];
+    const ms = action ? 10000 : kind === "error" ? 8000 : 4000;
+    setTimeout(() => this.dismissToast(id), ms);
+  }
+
+  dismissToast(id: number) {
+    this.toasts = this.toasts.filter((t) => t.id !== id);
   }
 
   // ------------------------------------------------------------ 自動保存（ブラウザ内の IndexedDB）

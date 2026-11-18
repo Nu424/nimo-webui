@@ -10,7 +10,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "smoke": "node scripts/smoke.mjs",
     "shot": "node scripts/shot.mjs",
-    "samples": "python scripts/make_samples.py"
+    "samples": "python scripts/make_samples.py",
+    "test": "esbuild src/lib/data/generate.ts --format=esm --outfile=.tmp/generate.mjs --log-level=warning && node tests/generate.test.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.1.1",

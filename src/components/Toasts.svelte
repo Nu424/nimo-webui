@@ -5,9 +5,17 @@
 
 <div class="toasts" aria-live="polite">
   {#each app.toasts as t (t.id)}
-    <div class="toast {t.kind}" transition:fly={{ y: 12, duration: 180 }}>
-      {t.kind === "success" ? "✓" : t.kind === "error" ? "⚠" : "ℹ"}
-      {t.text}
+    <div class="toast {t.kind}" class:has-action={!!t.action} transition:fly={{ y: 12, duration: 180 }}>
+      <span>{t.kind === "success" ? "✓" : t.kind === "error" ? "⚠" : "ℹ"} {t.text}</span>
+      {#if t.action}
+        <button
+          class="small"
+          onclick={() => {
+            app.dismissToast(t.id);
+            t.action!.run();
+          }}>{t.action.label}</button
+        >
+      {/if}
     </div>
   {/each}
 </div>
@@ -24,6 +32,9 @@
     pointer-events: none;
   }
   .toast {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     background: #1f2430;
     color: #fff;
     padding: 9px 16px;
@@ -32,6 +43,10 @@
     font-size: 13px;
     max-width: 640px;
   }
+  /* ボタン付きの通知だけクリックできるようにする（ほかは下の画面の操作を邪魔しない） */
+  .toast.has-action { pointer-events: auto; }
   .toast.success { background: #1f5130; }
   .toast.error { background: #7a1d1d; }
+  .toast button { background: transparent; color: #ffd43b; border-color: rgba(255, 255, 255, 0.35); font-weight: 600; }
+  .toast button:hover { background: rgba(255, 255, 255, 0.12) !important; }
 </style>

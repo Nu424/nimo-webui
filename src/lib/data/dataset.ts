@@ -64,8 +64,13 @@ export function rowState(ds: Dataset, yCols: number[], r: number): RowState {
   return filled === yCols.length ? "observed" : "partial";
 }
 
+/** 説明変数がすべて空の行（行を追加した直後など、まだ埋めていない行）。計算には使わない */
+export const isEmptyRow = (ds: Dataset, xCols: number[], r: number) => xCols.length > 0 && xCols.every((c) => isBlank(ds.rows[r][c]));
+
 export interface Summary {
   nRows: number;
+  /** 説明変数がすべて空の行の数（計算に使わない） */
+  nEmpty: number;
   nObserved: number;
   nPartial: number;
   nPending: number;
@@ -76,13 +81,17 @@ export interface Summary {
 export function summarize(ds: Dataset): Summary {
   const xCols = colsOf(ds, "x");
   const yCols = colsOf(ds, "y");
-  let nObserved = 0, nPartial = 0;
+  let nObserved = 0, nPartial = 0, nEmpty = 0;
   for (let r = 0; r < ds.rows.length; r++) {
+    if (isEmptyRow(ds, xCols, r)) {
+      nEmpty++;
+      continue;
+    }
     const s = rowState(ds, yCols, r);
     if (s === "observed") nObserved++;
     else if (s === "partial") nPartial++;
   }
-  return { nRows: ds.rows.length, nObserved, nPartial, nPending: ds.rows.length - nObserved - nPartial, xCols, yCols };
+  return { nRows: ds.rows.length, nEmpty, nObserved, nPartial, nPending: ds.rows.length - nEmpty - nObserved - nPartial, xCols, yCols };
 }
 
 export function moduleContext(ds: Dataset): ModuleContext {
@@ -116,24 +125,32 @@ export function checkReady(ds: Dataset, mod: ModuleDef, nProposals: number): Iss
     out.push({ level: "error", message: `${mod.id} は目的変数が ${range} のときに使えます（いまは ${s.yCols.length} 列）。` });
   }
 
-  // 説明変数はすべて数値で、空欄があってはいけない
-  for (const c of s.xCols) {
-    const bad = ds.rows.findIndex((r) => !isNum(r[c]));
-    if (bad >= 0) {
-      out.push({ level: "error", message: `説明変数「${ds.header[c]}」の ${bad + 1} 行目が数値ではありません（${ds.rows[bad][c] || "空欄"}）。数値にするか、この列を「使わない」にしてください。` });
-    }
+  // 説明変数はすべて数値で、空欄があってはいけない（説明変数がすべて空の行は計算から外すので対象外）。
+  // 列ごとに出すと多くなりすぎるので、1 件にまとめる
+  const used = ds.rows.map((_, i) => i).filter((i) => !isEmptyRow(ds, s.xCols, i));
+  const bad = s.xCols.flatMap((c) => {
+    const r = used.find((i) => !isNum(ds.rows[i][c]));
+    return r === undefined ? [] : [`${ds.header[c]}（${r + 1} 行目: ${ds.rows[r][c] || "空欄"}）`];
+  });
+  if (bad.length) {
+    out.push({
+      level: "error",
+      message: `説明変数に数値でないセルがあります: ${bad.slice(0, 3).join("、")}${bad.length > 3 ? ` ほか ${bad.length - 3} 列` : ""}。数値にするか、その列を「使わない」にしてください。`,
+    });
   }
+  if (s.xCols.length && used.length === 0) out.push({ level: "error", message: "説明変数が入った行がありません。" });
+  if (s.nEmpty > 0) out.push({ level: "info", message: `説明変数がすべて空の行（${s.nEmpty} 行）は、埋めるまで計算に使いません。` });
 
   // 目的変数の種類（数値 or ラベル）
   for (const c of s.yCols) {
-    const nonNum = ds.rows.find((r) => !isBlank(r[c]) && !isNum(r[c]));
+    const nonNum = used.map((i) => ds.rows[i]).find((r) => !isBlank(r[c]) && !isNum(r[c]));
     if (mod.objectiveKind === "number" && nonNum) {
       out.push({ level: "error", message: `目的変数「${ds.header[c]}」に数値でない値（${nonNum[c]}）があります。${mod.id} は数値の目的変数が必要です。ラベルなら「相図・分類」の手法を選んでください。` });
     }
   }
 
   if (s.nPartial > 0) {
-    out.push({ level: "warning", message: `目的変数の一部だけ入力された行が ${s.nPartial} 行あります。これらは「未実験」として扱います（入力済みの値は学習に使われません）。` });
+    out.push({ level: "warning", message: `一部の目的変数しかデータが無い行が ${s.nPartial} 行あります。これらは「未実験」として扱います（入力済みの値は学習に使われません）。` });
   }
   if (s.nObserved < mod.minObserved) {
     out.push({
@@ -148,7 +165,7 @@ export function checkReady(ds: Dataset, mod: ModuleDef, nProposals: number): Iss
       out.push({ level: "error", message: `${mod.id} には 2 種類以上のラベルが観測済みである必要があります（いまは ${labels.size} 種類）。`, fix: startFix });
     }
   }
-  if (!mod.proposesNewRows && nProposals > s.nPending) {
+  if (!mod.proposesNewRows && nProposals > s.nPending + s.nPartial) {
     out.push({ level: "error", message: `提案数（${nProposals}）が未実験の行数（${s.nPending}）より多くなっています。` });
   }
   if (mod.id === "COMBI") {
@@ -168,13 +185,16 @@ export function checkReady(ds: Dataset, mod: ModuleDef, nProposals: number): Iss
  *    ここで符号をそろえる（direction=flag の手法は常に「最大化」として渡し、最小化したい列は符号反転。
  *    SLESA のように常に最小化する手法は逆に、最大化したい列を符号反転）
  */
-export function buildNimoCsv(ds: Dataset, mod: ModuleDef): { csv: string; negate: boolean[] } {
+export function buildNimoCsv(ds: Dataset, mod: ModuleDef): { csv: string; negate: boolean[]; included: number[] } {
   const s = summarize(ds);
   const negate = s.yCols.map((c) =>
     mod.direction === "flag" ? ds.directions[c] === "min" : mod.direction === "minimizes" ? ds.directions[c] === "max" : false,
   );
   const header = [...s.xCols, ...s.yCols].map((c) => ds.header[c]);
-  const rows = ds.rows.map((r, i) => {
+  // 説明変数がすべて空の行は渡さない。included[nimo の行番号] = 元の表の行番号
+  const included = ds.rows.map((_, i) => i).filter((i) => !isEmptyRow(ds, s.xCols, i));
+  const rows = included.map((i) => {
+    const r = ds.rows[i];
     // 目的変数が一部だけ入った行は「未実験」として渡す（nimo は最後の目的変数だけで未実験を判定するので、
     // 途中の列が空欄のまま学習に使われないよう、目的変数をすべて空欄にそろえる）
     const partial = rowState(ds, s.yCols, i) === "partial";
@@ -183,5 +203,5 @@ export function buildNimoCsv(ds: Dataset, mod: ModuleDef): { csv: string; negate
       ...s.yCols.map((c, k) => (partial ? "" : negate[k] && isNum(r[c]) ? String(-Number(r[c])) : r[c])),
     ];
   });
-  return { csv: Papa.unparse([header, ...rows], { newline: "\n" }), negate };
+  return { csv: Papa.unparse([header, ...rows], { newline: "\n" }), negate, included };
 }

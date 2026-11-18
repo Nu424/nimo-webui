@@ -64,6 +64,8 @@
       {/if}
     </div>
     <button onclick={() => app.exportCandidates()} disabled={!app.dataset} title="編集した候補表を CSV で保存（Ctrl+S）">💾 書き出し</button>
+    <button onclick={() => (app.generatorOpen = app.dataset ? "append" : "new")} title="変数の範囲・刻みから、候補の組み合わせを網羅的に作る">🧮 候補を生成</button>
+    <button onclick={() => app.askReset()} disabled={!app.dataset} title="表・提案の履歴・設定を消して最初の画面に戻る">🗑 リセット</button>
     <span class="sep"></span>
     <EngineStatus />
     <button class="help" onclick={() => (app.helpOpen = "start")}>❓ 使い方</button>
@@ -86,12 +88,13 @@
   .actions { display: flex; align-items: center; gap: 6px; }
   .sep { width: 1px; height: 22px; background: var(--line-strong); margin: 0 4px; }
   .menu-wrap { position: relative; }
-  .backdrop { position: fixed; inset: 0; z-index: 50; }
+  /* Handsontable の見出し（z-index 160〜180）より前面に出す */
+  .backdrop { position: fixed; inset: 0; z-index: 900; }
   .menu {
     position: absolute;
     right: 0;
     top: calc(100% + 4px);
-    z-index: 51;
+    z-index: 901;
     width: 360px;
     background: #fff;
     border: 1px solid var(--line);

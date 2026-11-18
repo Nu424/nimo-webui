@@ -8,11 +8,14 @@
   import Handsontable from "handsontable";
   import "handsontable/styles/handsontable.min.css";
   import "handsontable/styles/ht-theme-main.min.css";
+  import { registerLanguageDictionary, jaJP } from "handsontable/i18n";
   import { app } from "../lib/app.svelte";
   import { rowState, colsOf, type Role } from "../lib/data/dataset";
 
   /** コンテキストメニューの選択範囲 */
   type Sel = { start: { row: number; col: number }; end: { row: number; col: number } }[];
+
+  registerLanguageDictionary(jaJP);
 
   let el: HTMLDivElement;
   let hot: Handsontable | null = null;
@@ -55,7 +58,7 @@
     const dirHtml = dirOk
       ? `<span class="dir ${dir}" data-act="dir" title="クリックで 最大化 ⇄ 最小化">${dir === "max" ? "▲ 最大化" : "▼ 最小化"}</span>`
       : "";
-    return `<div class="colh ${role}"><span class="chip ${role}" data-act="role" title="クリックで役割を切替（説明変数 → 目的変数 → 使わない）">${ROLE_LABEL[role]}</span><span class="cname" title="${esc(ds.header[col])}">${esc(ds.header[col])}</span>${dirHtml}</div>`;
+    return `<div class="colh ${role}"><span class="chip ${role}" data-act="role" title="クリックで役割を切替（説明変数 → 目的変数 → 使わない）">${ROLE_LABEL[role]}</span><span class="cname" data-col="${col}" title="${esc(ds.header[col])}（ダブルクリックで列名を変更）">${esc(ds.header[col])}</span>${dirHtml}</div>`;
   }
 
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
@@ -70,6 +73,8 @@
 
   function cellsMeta(physRow: number, col: number) {
     const ds = app.dataset!;
+    // 行・列の削除直後は、表が新しいデータを受け取る前に一度描画されることがある
+    if (!ds.rows[physRow]) return "";
     const n = ds.header.length;
     const yCols = colsOf(ds, "y");
     const cls = [`row-${rowState(ds, yCols, physRow)}`];
@@ -108,6 +113,7 @@
       // 見出しの HTML は headerHtml() で自前にエスケープしているので、そのまま通す
       sanitizer: (html: string) => html,
       licenseKey: "non-commercial-and-evaluation",
+      language: jaJP.languageCode,
       height: "100%",
       width: "100%",
       rowHeaders: (visualRow: number) => {
@@ -152,16 +158,29 @@
           hot!.render(); // 行の状態（実験済みになった等）の色を更新
         }
       },
-      afterOnCellMouseDown(event, coords) {
+      beforeOnCellMouseDown(event, coords) {
+        // 見出しのチップ（役割・最大化/最小化）は、列の選択より前に処理して選択を止める
         if (coords.row !== -1 || coords.col == null || coords.col < 0) return;
         const act = (event.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset.act;
+        if (!act) return;
+        event.stopImmediatePropagation();
         const col = hot!.toPhysicalColumn(coords.col) ?? -1;
-        if (col >= app.dataset!.header.length) return;
+        if (col < 0 || col >= app.dataset!.header.length) return;
         if (act === "role") app.cycleRole(col);
         if (act === "dir") app.setDirection(col, app.dataset!.directions[col] === "max" ? "min" : "max");
       },
       contextMenu: {
         items: {
+          row_delete: {
+            name: () => `選択した行を削除（${selectedRows().length} 行）`,
+            callback: () => app.deleteRows(selectedRows()),
+            hidden: () => selectedRows().length === 0 || isHeaderOnly(),
+          },
+          sp0: "---------",
+          col_add: { name: "列を右に追加", callback: () => withCol((c) => app.addColumn(c)), hidden: () => !colSelected() },
+          col_rename: { name: "列名を変更", callback: () => withCol((c) => app.renameColumn(c)), hidden: () => !colSelected() },
+          col_delete: { name: "列を削除", callback: () => withCol((c) => app.deleteColumn(c)), hidden: () => !colSelected() },
+          spc: "---------",
           role_x: { name: "🔵 説明変数にする", callback: (_k: string, sel: Sel) => setRoleSel(sel, "x"), hidden: () => !colSelected() },
           role_y: { name: "🟠 目的変数にする", callback: (_k: string, sel: Sel) => setRoleSel(sel, "y"), hidden: () => !colSelected() },
           role_ignore: { name: "⚪ 使わない", callback: (_k: string, sel: Sel) => setRoleSel(sel, "ignore"), hidden: () => !colSelected() },
@@ -170,23 +189,54 @@
           sort_desc: { name: "降順で並べ替え", callback: (_k: string, sel: Sel) => sortBy(sel, "desc") },
           sort_clear: { name: "並べ替えを解除", callback: () => hot!.getPlugin("columnSorting").clearSort() },
           sp2: "---------",
-          undo: { name: "元に戻す" },
-          redo: { name: "やり直す" },
+          undo: {},
+          redo: {},
           sp3: "---------",
-          copy: { name: "コピー" },
-          cut: { name: "切り取り" },
+          copy: {},
+          cut: {},
         },
       },
     });
-    el.addEventListener("dblclick", (e) => {
-      // 見出しのダブルクリックで列幅をリセットしないよう何もしない（既定動作の抑止）
-      if ((e.target as HTMLElement).closest("thead")) e.stopPropagation();
-    });
+    el.addEventListener(
+      "dblclick",
+      (e) => {
+        // 見出しの列名をダブルクリック → 列名を変更
+        const nameEl = (e.target as HTMLElement).closest<HTMLElement>(".cname[data-col]");
+        if (nameEl) {
+          e.stopPropagation();
+          app.renameColumn(Number(nameEl.dataset.col));
+        }
+      },
+      true,
+    );
     return () => {
       hot?.destroy();
       hot = null;
     };
   });
+
+  /** 選択範囲に含まれる行（元の表の行番号） */
+  function selectedRows(): number[] {
+    const out = new Set<number>();
+    for (const r of hot?.getSelectedRange() ?? []) {
+      const a = Math.max(0, Math.min(r.from.row ?? 0, r.to.row ?? 0));
+      const b = Math.max(r.from.row ?? 0, r.to.row ?? 0);
+      for (let v = a; v <= b; v++) {
+        const phys = hot!.toPhysicalRow(v);
+        if (phys !== null && phys >= 0) out.add(phys);
+      }
+    }
+    return [...out].sort((x, y) => x - y);
+  }
+  /** 見出しを選んでいる（列全体の選択）ときは行の削除を出さない */
+  const isHeaderOnly = () => (hot?.getSelectedRange() ?? []).some((r) => r.from.row === -1 || (r.from.row === 0 && r.to.row === app.dataset!.rows.length - 1 && app.dataset!.rows.length > 1));
+  function withCol(fn: (c: number) => void) {
+    const r = hot?.getSelectedRangeLast();
+    const c = hot!.toPhysicalColumn(r?.from.col ?? -1) ?? -1;
+    if (c >= 0 && c < app.dataset!.header.length) fn(c);
+  }
+
+  let addCount = $state(1);
 
   function colSelected() {
     const r = hot?.getSelectedRangeLast();
@@ -219,8 +269,8 @@
       } else {
         shownPreds = preds;
         const s = settings();
-        hot!.updateSettings({ colHeaders: s.colHeaders, colWidths: s.colWidths, columns: s.columns });
         hot!.updateData(s.data as unknown[][]);
+        hot!.updateSettings({ colHeaders: s.colHeaders, colWidths: s.colWidths, columns: s.columns });
       }
     });
   });
@@ -237,10 +287,25 @@
   });
 </script>
 
-<div class="grid" bind:this={el}></div>
+<div class="wrap">
+  <div class="grid" bind:this={el}></div>
+  <!-- Google スプレッドシートのように、表の下で行を足せるようにする -->
+  <div class="addbar">
+    <button class="small" onclick={() => app.addRows(addCount)}>＋ 行を追加</button>
+    <input type="number" min="1" max="10000" bind:value={addCount} aria-label="追加する行数" />
+    <span class="muted">行を末尾に</span>
+    <span class="grow"></span>
+    <span class="muted hint">行・列の削除や列の追加は右クリック</span>
+  </div>
+</div>
 
 <style>
-  .grid { position: absolute; inset: 0; }
+  .wrap { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .grid { flex: 1; min-height: 0; position: relative; }
+  .addbar { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-top: 1px solid var(--line); font-size: 12px; background: #fff; }
+  .addbar input { width: 64px; padding: 2px 6px; font-size: 12px; }
+  .addbar .grow { flex: 1; }
+  .addbar .hint { font-size: 11px; }
 
   /* ---- 見出し */
   .grid :global(.colh) { display: flex; align-items: center; gap: 5px; justify-content: flex-start; overflow: hidden; }
