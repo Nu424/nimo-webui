@@ -24,6 +24,26 @@ NIMS の材料探索ライブラリ [NIMO](https://nims-da.github.io/nimo/en/ind
 - PyPI 最新は nimo 2.1.8。モジュール構成の差分はステップ 0 で確認する。
 - 選択モジュール: RE, PHYSBO, PDC, BLOX, PTR, SLESA, BOMP, ES, COMBI, NTS, DOE, LLMEP（＋解析 WAM）。複数目的に対応するのは PHYSBO / BOMP など一部。
 
+## ステップ 0 の結果（2026-11-19）
+
+決定: A〜E・G は推奨どおり。F（LLMEP）は対象外。エディタは **Handsontable**。目視確認は **Playwright**（`scripts/shot.mjs`）。
+
+| 項目 | 結果 |
+|---|---|
+| 実行環境 | Pyodide 314.0.7（Python 3.14, numpy 2.4 / scipy 1.18 / scikit-learn 1.8）。Node 上で起動〜nimo 導入まで約 5 秒 |
+| nimo | 2.1.8（PyPI 最新。公式ドキュメントは 3.0.0 表記だが PyPI 未公開）。選択モジュールは 15 種（RE, PHYSBO, PDC, BLOX, PTR, SLESA, BOMP, ES, COMBI, NTS, RSVM, DOE, LLMEP, LSE, BALD） |
+| 動作 | LLMEP 以外の 14 種すべて動作。所要は大半が 2 秒未満、NTS のみ約 11 秒。3000 行×10 変数の PHYSBO で 1.4 秒 |
+| wheel | physbo・odat-se は PyPI に sdist しかないため、純 Python wheel をビルドして `public/wheels/` に同梱。nimo・pyDOE3 も同梱し、外部依存は Pyodide の CDN のみ |
+| anthropic | `sys.modules` に空モジュールを差し込めば nimo を import できる |
+
+モジュールごとの注意:
+- `output_res.csv` は多くが**未実験の行だけ**を元の順で出力（PHYSBO, BLOX, PTR, NTS, RSVM）。LSE（`actions` 列あり）・PDC は全行。
+- COMBI: 組成は百分率の整数（合計 100）、`combi_ranges=[[min,max],...]`、`spread_elements=[[i,j],...]`。提案は候補表の行ではなく新しい組成（`actions=-1`）。
+- SLESA: 実行をまたいで `slesa_log_*.csv` を持ち回る → アプリ側で保持して次回に渡す。
+- COMBI などは失敗時に `sys.exit()` を呼ぶ → ラッパで `BaseException` を捕まえる。
+- PDC・BALD は目的変数が分類ラベル。PDC は 2 クラス以上の観測が必要。LSE は観測 2 件以上。
+- 公式ドキュメントに記載がないのは LSE・BALD・SLESA。解説はソースの docstring から書く。
+
 ## 決めたいこと（推奨つき）
 
 | # | 論点 | 推奨 | 代案 |
