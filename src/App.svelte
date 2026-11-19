@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from "./components/Icon.svelte";
   import { onMount } from "svelte";
   import { app } from "./lib/app.svelte";
   import { engine } from "./lib/nimo/engine.svelte";
@@ -67,7 +68,7 @@
 {#if dragDepth > 0}
   <div class="drop-overlay">
     <div class="drop-card">
-      <div class="drop-icon">📄</div>
+      <div class="drop-icon"><Icon name="file" size={36} /></div>
       <div>ここに CSV をドロップ</div>
       <div class="muted small">今の表は置き換わります（必要なら先に書き出してください）</div>
     </div>
@@ -85,7 +86,7 @@
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 400px;
+    grid-template-columns: minmax(0, 1fr) 360px;
     gap: 12px;
     padding: 0 12px 12px;
   }
@@ -94,7 +95,6 @@
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
     overflow: hidden;
   }
   .right { display: flex; flex-direction: column; }
@@ -104,7 +104,7 @@
   .drop-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(59, 91, 219, 0.12);
+    background: rgba(14, 110, 107, 0.12);
     backdrop-filter: blur(2px);
     display: grid;
     place-items: center;
@@ -122,6 +122,6 @@
     display: grid;
     gap: 6px;
   }
-  .drop-icon { font-size: 40px; }
+  .drop-icon { color: var(--accent); }
   .small { font-size: 12px; font-weight: 400; }
 </style>

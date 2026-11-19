@@ -1,36 +1,47 @@
-/* 色の約束事: 説明変数=青、目的変数=橙、提案=黄、使わない=灰。表・グラフ・説明で共通に使う */
+/* 色の約束事: 説明変数=青、目的変数=橙、提案=黄、予測=紫、使わない=灰。表・グラフ・説明で共通に使う。
+   操作の色（アクセント）は藍緑にして、説明変数の青と混ざらないようにする */
 :root {
-  --bg: #f6f7f9;
+  --bg: #f3f5f4;
   --panel: #ffffff;
-  --line: #e3e6eb;
-  --line-strong: #cfd4dc;
-  --text: #1f2430;
-  --muted: #6b7280;
-  --faint: #9aa1ad;
-  --accent: #3b5bdb;
-  --accent-weak: #edf1ff;
+  --surface: #f6f8f7;       /* 副ボタン・淡い面 */
+  --surface-2: #eaefed;     /* その hover */
+  --line: #e2e7e5;
+  --line-soft: #eef1f0;     /* 表の罫線 */
+  --line-strong: #c9d1ce;
+  --text: #17222b;
+  --muted: #4a5761;         /* 補足 */
+  --faint: #6b7780;         /* さらに弱い（白地で 4.5:1 以上） */
+
+  --accent: #0e6e6b;        /* 藍緑 */
+  --accent-hover: #0a5754;
+  --accent-weak: #e3f1ef;
+  --accent-line: #a9d3ce;
+  --accent-ink: #0a4442;
 
   --x: #2f6fdb;
-  --x-bg: #e8f0fd;
-  --y: #d9730d;
-  --y-bg: #fdefe0;
-  --ignore: #9aa1ad;
-  --ignore-bg: #f1f2f4;
-  --proposal: #f5b301;
-  --proposal-bg: #fff6d6;
-  --pred: #7c5cc4;
+  --x-bg: #eaf1fd;
+  --y: #d06a0a;
+  --y-bg: #fdf1e4;
+  --y-cell: #fffaf4;
+  --ignore: #85919a;
+  --ignore-bg: #f1f3f2;
+  --proposal: #f2b100;
+  --proposal-bg: #fff5d1;
+  --proposal-ink: #7a5800;
+  --pred: #7454c0;
   --pred-bg: #f4f0fb;
+  --pred-band: #e3d9f6;
 
   --ok: #2b8a3e;
-  --ok-bg: #ebfbee;
-  --warn: #b7791f;
-  --warn-bg: #fff8e6;
+  --ok-bg: #e8f6ec;
+  --warn: #a86a12;
+  --warn-bg: #fff6e3;
   --err: #c92a2a;
   --err-bg: #fff0f0;
 
-  --radius: 8px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
-  --font: "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Meiryo, system-ui, sans-serif;
+  --radius: 10px;
+  --shadow-pop: 0 12px 32px rgba(20, 30, 40, 0.14);
+  --font: "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", Meiryo, system-ui, sans-serif;
   --mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 }
 
@@ -38,42 +49,54 @@
 html, body { margin: 0; height: 100%; }
 body {
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 #app { height: 100vh; }
 
+/* ボタンは 3 種: 主（.primary＝塗り）・副（既定＝淡い面）・控えめ（.ghost＝文字だけ） */
 button {
   font: inherit;
   cursor: pointer;
-  border: 1px solid var(--line-strong);
-  background: var(--panel);
+  border: 0;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
   color: var(--text);
-  border-radius: 6px;
-  padding: 5px 10px;
-  line-height: 1.3;
-  transition: background 0.12s, border-color 0.12s;
+  border-radius: 8px;
+  padding: 5px 12px;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
 }
-button:hover:not(:disabled) { background: #f2f4f7; }
+button:hover:not(:disabled) { background: var(--surface-2); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-button.primary:hover:not(:disabled) { background: #2f4ac0; }
-button.ghost { border-color: transparent; background: transparent; }
-button.ghost:hover:not(:disabled) { background: #eceef2; }
-button.small { padding: 2px 8px; font-size: 12px; }
+button.primary { background: var(--accent); box-shadow: none; color: #fff; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+button.primary:disabled { background: #b9cfcd; opacity: 1; }
+button.ghost { background: transparent; box-shadow: none; color: var(--muted); }
+button.ghost:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+button.small { padding: 3px 9px; font-size: 12px; }
+button.danger { background: var(--err); box-shadow: none; color: #fff; font-weight: 600; }
+button.danger:hover:not(:disabled) { background: #a61e1e; }
 
 input, select {
   font: inherit;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  padding: 4px 8px;
+  border-radius: 8px;
+  padding: 4px 9px;
   background: #fff;
   color: var(--text);
   min-width: 0;
 }
 input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 
 a { color: var(--accent); }
 kbd {
@@ -84,26 +107,34 @@ kbd {
   border-radius: 4px;
   padding: 0 4px;
   background: #fff;
+  color: var(--muted);
 }
 
-/* 役割のチップ（表の見出し・説明文で共通） */
+/* 役割のチップ（表の見出し・説明文で共通）。枠を付けず、淡い地と色の文字だけで控えめに */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  border-radius: 999px;
-  padding: 1px 7px;
-  line-height: 16px;
+  border-radius: 5px;
+  padding: 0 6px;
+  line-height: 20px;
   white-space: nowrap;
-  border: 1px solid transparent;
 }
-.chip.x { color: var(--x); background: var(--x-bg); border-color: #c9dbf8; }
-.chip.y { color: var(--y); background: var(--y-bg); border-color: #f6d3ad; }
-.chip.ignore { color: var(--ignore); background: var(--ignore-bg); border-color: var(--line); }
-.chip.proposal { color: #8a6400; background: var(--proposal-bg); border-color: #f2dc8c; }
-.chip.pred { color: var(--pred); background: var(--pred-bg); border-color: #e0d6f3; }
+.chip.x { color: var(--x); background: var(--x-bg); }
+.chip.y { color: var(--y); background: var(--y-bg); }
+.chip.ignore { color: var(--ignore); background: var(--ignore-bg); }
+.chip.proposal { color: var(--proposal-ink); background: var(--proposal-bg); }
+.chip.pred { color: var(--pred); background: var(--pred-bg); }
+
+/* 凡例などの小さな色の印 */
+.mark { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; flex: none; }
+.mark.x { background: var(--x); }
+.mark.y { background: var(--y); }
+.mark.pred { background: var(--pred); }
+.mark.ignore { background: var(--ignore); }
 
 .muted { color: var(--muted); }
 .mono { font-family: var(--mono); }
+.num { font-variant-numeric: tabular-nums; }

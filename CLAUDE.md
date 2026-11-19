@@ -55,7 +55,8 @@ src/
     nimo/engine.svelte.ts    画面側のエンジン（起動・状態・実行・中断＝ワーカー作り直し）
   python/runner.py           nimo.selection を 1 回実行し、生成ファイルを回収して返す
   components/                画面の部品（CandidateGrid=Handsontable、ProposalsView、ChartView=Plotly、SidePanel、
-                             ParamForm、GeneratorDialog、HelpDialog、ConfirmDialog、Toasts ほか）
+                             MethodDialog（手法を選ぶ）、ParamForm、GeneratorDialog、HelpDialog、ConfirmDialog、
+                             Toasts、Icon（線画アイコン）ほか）
 public/wheels/               同梱 wheel（nimo 2.1.8、physbo 3.2.1、odat-se 4.0.1、pyDOE3 1.6.2）
 public/samples/              サンプル（scripts/make_samples.py で生成。*.truth.csv は「仮想実験」用の真の値）
 scripts/                     shot.mjs（スクショ）、smoke.mjs（全手法の実行）、make_samples.py
@@ -94,7 +95,7 @@ tests/generate.test.mjs      生成の単体テスト（esbuild で .tmp/ に変
 - 見出しの HTML は自前でエスケープしている（`sanitizer` は素通し）。利用者の文字列を HTML に入れるときは必ずエスケープする（グラフのホバーも同じ）。
 - 実行中に別ファイルを開いたら結果を捨てる（`#loadId`）。実行時点の表を写してから対応づける。列の役割が変わった後の結果は `runStale` として強調・予測を隠す。
 - 構造を変える操作（行・列の削除、候補の追加）は `#undoable` で包み、通知の「元に戻す」で戻せるようにする。確認・入力はブラウザの confirm/prompt ではなく `ConfirmDialog`（`app.confirmRequest`）。
-- リセットは必ず時刻付きの CSV を書き出してから行う（利用者の要望）。
+- リセットは既定で時刻付きの CSV を書き出してから行う。▼ から「保存せずにリセット」も選べる（毎回のダウンロードは不便という利用者の要望）。
 
 ### 環境
 - 手元の Node は 20.17 → Vite 6 + vite-plugin-svelte 5（Vite 7/8 は Node 20.19 以上が必要）。
@@ -103,7 +104,10 @@ tests/generate.test.mjs      生成の単体テスト（esbuild で .tmp/ に変
 
 ## デザインの約束
 
-- 色の意味は全体で共通: 説明変数＝青、目的変数＝橙、使わない＝灰、提案＝黄の★、予測＝紫（`src/app.css` の変数）。
+- 色の意味は全体で共通: 説明変数＝青、目的変数＝橙、使わない＝灰、提案＝黄の★、予測＝紫（`src/app.css` の変数）。操作の色（アクセント）は藍緑 `--accent` で、説明変数の青と混ぜない。
+- アイコンは絵文字を使わず `components/Icon.svelte` の線画 SVG（足りなければ同じ太さで追加）。ボタンは 3 種: 主＝`.primary`（塗り。画面に 1 つ、基本は「提案を出す」）・副＝既定（淡い面）・控えめ＝`.ghost`。
+- 画面の割り当て: ヘッダ＝ファイル名のメニュー（開く・新規・サンプル・書き出し・リセット）と状態・使い方。右パネル＝今の手法（「変更」でダイアログ `MethodDialog`）・設定・実行。表の上＝凡例・予測の表示・候補を生成、表の下＝行を追加。通知はヘッダの中央。
+- 改善前の UI モック（`.tmp/mock/index.html`、git 管理外）で方向性を決めた。大きな見た目の変更は、モックで比べてから実装する。
 - 説明文は利用者向けに専門用語を言い換える。README には「研究室の他の人向け」といった利用者層の記述を書かない（利用者の指示）。
 - 使い方ダイアログの文言は利用者と調整済み。変えるときは意図を確認する。
 - グラフの色は dataviz スキルの検証済みパレット（カテゴリは固定順、数値は青の 1 色濃淡）。

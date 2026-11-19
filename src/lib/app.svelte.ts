@@ -33,7 +33,13 @@ export interface ConfirmRequest {
   message: string;
   /** 文字入力欄を出す（列名の変更など） */
   input?: { label: string; value: string };
-  actions: { label: string; kind?: "primary" | "danger"; run: (input: string) => void }[];
+  actions: {
+    label: string;
+    kind?: "primary" | "danger";
+    run: (input: string) => void;
+    /** ボタン右端の ▼ から選べる別の操作（「保存せずにリセット」など） */
+    more?: { label: string; kind?: "danger"; run: () => void }[];
+  }[];
 }
 
 const SEEN_INPUT_HELP = "nimo-webui:seen-input-help";
@@ -255,8 +261,9 @@ class AppState {
   confirmRequest = $state<ConfirmRequest | null>(null);
 
   /**
-   * リセットは必ず書き出してから行う（うっかり消しても、書き出した CSV を開き直せば戻せる）。
-   * 書き出し名には時刻を付けて、何度リセットしても上書きされないようにする
+   * リセットは書き出してから行うのを既定にする（うっかり消しても、書き出した CSV を開き直せば戻せる）。
+   * 書き出し名には時刻を付けて、何度リセットしても上書きされないようにする。
+   * 毎回ダウンロードが走るのは煩わしいので、▼ から「保存せずにリセット」も選べる
    */
   askReset() {
     const ds = this.dataset;
@@ -265,11 +272,18 @@ class AppState {
     this.confirmRequest = {
       title: "最初の画面に戻しますか？",
       message: `今の表を「${file}」として書き出してから、表・提案の履歴・手法の設定を消して最初の画面に戻ります。\n書き出したファイルを開けば、いつでも表の続きから始められます。`,
-      actions: [{ label: "書き出してリセット", kind: "primary", run: () => (this.exportCandidates(file), this.reset()) }],
+      actions: [
+        {
+          label: "書き出してリセット",
+          kind: "primary",
+          run: () => (this.exportCandidates(file), this.reset(true)),
+          more: [{ label: "保存せずにリセット", kind: "danger", run: () => this.reset(false) }],
+        },
+      ],
     };
   }
 
-  reset() {
+  reset(exported: boolean) {
     this.#loadId++;
     this.dataset = null;
     this.truth = null;
@@ -280,7 +294,7 @@ class AppState {
     this.tab = "input";
     this.touch();
     this.save(); // すぐに保存して、再読み込みしても戻らないようにする
-    this.toast("info", "表を書き出してリセットしました");
+    this.toast("info", exported ? "表を書き出してリセットしました" : "リセットしました");
   }
 
   // ------------------------------------------------------------ 元に戻せる操作

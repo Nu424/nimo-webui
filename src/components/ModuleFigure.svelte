@@ -1,6 +1,6 @@
 <script lang="ts">
   // 手法ごとの考え方を示す小さな模式図（色の約束: 観測=青、予測=紫、提案=黄の★）
-  let { figure, size = "md" }: { figure: string; size?: "sm" | "md" } = $props();
+  let { figure, size = "md" }: { figure: string; size?: "xs" | "sm" | "md" } = $props();
   const star = (x: number, y: number, r = 6) => {
     const pts: string[] = [];
     for (let i = 0; i < 10; i++) {
@@ -14,7 +14,7 @@
 </script>
 
 <svg viewBox="0 0 120 64" class={size} role="img" aria-label="手法の模式図">
-  <rect width="120" height="64" rx="6" fill="#fafbfd" />
+  <rect width="120" height="64" rx="6" fill="#f6f8f7" />
   {#if figure === "bo"}
     <!-- 予測の平均と不確かさの帯、観測点、獲得関数の山に★ -->
     <path d="M6 44 C 22 40, 30 18, 46 22 S 70 50, 86 30 S 108 12, 116 20 L116 34 C 108 26, 96 46, 86 44 S 64 60, 46 34 S 22 54, 6 54 Z" fill="#ece6f8" />
@@ -83,6 +83,7 @@
 
 <style>
   svg { display: block; flex: none; }
+  .xs { width: 56px; height: 30px; }
   .sm { width: 72px; height: 38px; }
   .md { width: 100%; max-width: 240px; height: auto; }
 </style>

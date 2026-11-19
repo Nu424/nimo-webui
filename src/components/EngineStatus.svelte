@@ -1,5 +1,6 @@
 <script lang="ts">
   import { engine } from "../lib/nimo/engine.svelte";
+  import Icon from "./Icon.svelte";
 </script>
 
 {#if engine.status === "loading" || engine.status === "idle"}
@@ -9,7 +10,7 @@
     <span class="bar"><span style:width={`${Math.round(engine.progress * 100)}%`}></span></span>
   </div>
 {:else if engine.status === "error"}
-  <button class="pill error" onclick={() => engine.retry()} title={engine.errorMessage}>⚠ Python を読み込めませんでした（クリックで再試行）</button>
+  <button class="pill error" onclick={() => engine.retry()} title={engine.errorMessage}><Icon name="alert" />Python を読み込めませんでした（クリックで再試行）</button>
 {:else}
   <div
     class="pill ready"
@@ -22,21 +23,9 @@
 {/if}
 
 <style>
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    border-radius: 999px;
-    padding: 3px 10px;
-    border: 1px solid var(--line);
-    background: #fff;
-    white-space: nowrap;
-  }
-  .ready { color: var(--ok); border-color: #b8e2c1; background: var(--ok-bg); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
-  .error { color: var(--err); border-color: #f3c0c0; background: var(--err-bg); }
-  .loading { color: var(--muted); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; color: var(--muted); }
+  .ready .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  button.pill { background: var(--err-bg); color: var(--err); box-shadow: none; }
   .bar { width: 60px; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
   .bar span { display: block; height: 100%; background: var(--accent); transition: width 0.4s; }
   .spinner {

@@ -2,22 +2,24 @@
 // 設定フォーム・実行前チェック・解説カードは、すべてこの定義から作る。
 // 新しいモジュールを足すときは、ここに 1 項目追加すればよい。
 
+import type { IconName } from "../components/Icon.svelte";
+
 export type GoalId = "start" | "optimize" | "target" | "classify" | "explore" | "combi";
 
 export interface Goal {
   id: GoalId;
   label: string;
   hint: string;
-  emoji: string;
+  icon: IconName;
 }
 
 export const GOALS: Goal[] = [
-  { id: "optimize", label: "いちばん良い条件を探したい", hint: "目的変数を最大化・最小化する", emoji: "🎯" },
-  { id: "start", label: "まず最初の実験点を決めたい", hint: "データがまだ無い・少ないとき", emoji: "🌱" },
-  { id: "target", label: "狙った範囲に入る条件を探したい", hint: "目標値の範囲・しきい値の境目", emoji: "📏" },
-  { id: "classify", label: "相図・分類の境界を描きたい", hint: "目的変数が「相」などのラベル", emoji: "🗺️" },
-  { id: "explore", label: "物性の幅を広げたい", hint: "まだ見たことのない性質を探す", emoji: "🔭" },
-  { id: "combi", label: "組成傾斜膜の実験を計画したい", hint: "2 元素の組成を連続的に変える", emoji: "🌈" },
+  { id: "optimize", label: "いちばん良い条件を探したい", hint: "目的変数を最大化・最小化する", icon: "target" },
+  { id: "start", label: "まず最初の実験点を決めたい", hint: "データがまだ無い・少ないとき", icon: "sprout" },
+  { id: "target", label: "狙った範囲に入る条件を探したい", hint: "目標値の範囲・しきい値の境目", icon: "ruler" },
+  { id: "classify", label: "相図・分類の境界を描きたい", hint: "目的変数が「相」などのラベル", icon: "map" },
+  { id: "explore", label: "物性の幅を広げたい", hint: "まだ見たことのない性質を探す", icon: "scope" },
+  { id: "combi", label: "組成傾斜膜の実験を計画したい", hint: "2 元素の組成を連続的に変える", icon: "layers" },
 ];
 
 /** 実行時に設定フォームへ渡す、データ側の情報 */

@@ -4,6 +4,7 @@
   //  - 色は目的変数（観測値。未実験は予測値）またはラベル
   //  - 実験済み=塗りつぶし、未実験=小さく半透明、提案=★。点をクリックすると候補表のその行へ
   // 目的変数の軸で未実験の行は、予測値があれば予測位置に白抜きで描く（モデルの見立てが見える）。
+  import Icon from "./Icon.svelte";
   import { onMount } from "svelte";
   import { app } from "../lib/app.svelte";
   import { isNum, isBlank, colsOf, rowState } from "../lib/data/dataset";
@@ -232,7 +233,7 @@
 <div class="wrap">
   <div class="controls">
     <label>横軸 <select bind:value={xId}>{#each axes as a}<option value={a.id}>{a.label}</option>{/each}</select></label>
-    <button class="ghost small" onclick={swap} title="縦軸と横軸を入れ替え">⇄</button>
+    <button class="ghost small" onclick={swap} title="縦軸と横軸を入れ替え"><Icon name="swap" size={15} /></button>
     <label>縦軸 <select bind:value={yId}>{#each axes as a}<option value={a.id}>{a.label}</option>{/each}</select></label>
     <label>色 <select bind:value={colorId}>{#each colorChoices as a}<option value={a.id}>{a.label}</option>{/each}</select></label>
     <span class="grow"></span>

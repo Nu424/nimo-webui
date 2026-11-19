@@ -3,6 +3,7 @@
   //  - 新しい表として作る: 変数（説明変数）と目的変数の列名から、組み合わせを網羅した候補表を作る
   //  - 今の表に追加: 今の表の説明変数の値をもとに組み合わせを作り、まだ無いものだけを末尾に足す
   // 生成そのものは lib/data/generate.ts（画面から独立した関数）が担う。
+  import Icon from "./Icon.svelte";
   import { app } from "../lib/app.svelte";
   import { colsOf, isNum, type Role } from "../lib/data/dataset";
   import { columnNames, generate, MAX_ROWS, mergeInto, plan, splitList, countOf, type VarSpec } from "../lib/data/generate";
@@ -91,7 +92,7 @@
 <dialog bind:this={dialog} onclose={close}>
   <div class="box">
     <header>
-      <h2>{mode === "new" ? "🧮 新しい候補表を作る" : "🧮 候補を生成して追加"}</h2>
+      <h2><Icon name="wand" size={18} />{mode === "new" ? "新しい候補表を作る" : "候補を生成して追加"}</h2>
       {#if app.dataset}
         <div class="seg" role="group" aria-label="作り方">
           <button class:on={mode === "new"} onclick={() => switchMode("new")}>新しい表として作る</button>
@@ -141,8 +142,8 @@
                 <span class="muted small">表を作ったあとで入力します</span>
               {/if}
             </div>
-            <span class="count" class:bad={typeof c === "string"} title={typeof c === "string" ? c : ""}>{typeof c === "number" ? `${c.toLocaleString()} 通り` : "⚠ 要確認"}</span>
-            <button class="ghost small del" onclick={() => (vars = vars.filter((_, j) => j !== i))} aria-label="この列を削除" title="この列を削除">✕</button>
+            <span class="count" class:bad={typeof c === "string"} title={typeof c === "string" ? c : ""}>{typeof c === "number" ? `${c.toLocaleString()} 通り` : "要確認"}</span>
+            <button class="ghost small del" onclick={() => (vars = vars.filter((_, j) => j !== i))} aria-label="この列を削除" title="この列を削除"><Icon name="x" size={14} /></button>
           </div>
         {/each}
       </div>
@@ -208,7 +209,8 @@
   dialog::backdrop { background: rgba(16, 24, 40, 0.4); }
   .box { display: flex; flex-direction: column; max-height: 90vh; }
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px 10px; border-bottom: 1px solid var(--line); }
-  h2 { font-size: 17px; margin: 0; }
+  h2 { font-size: 17px; margin: 0; display: flex; align-items: center; gap: 8px; }
+  h2 :global(.icon) { color: var(--accent); }
   .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
   .seg button { border: none; border-radius: 0; padding: 5px 12px; font-size: 12px; }
   .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }

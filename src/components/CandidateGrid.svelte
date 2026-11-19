@@ -4,6 +4,7 @@
   // - 行は「実験済み/未実験/提案」で色分けし、提案された行は行見出しに ★順位 を出す
   // - 直近の実行の予測値（平均・不確かさ・獲得関数など）を、読み取り専用の列として右に並べる
   // 表に渡すデータは「元の行 + 予測値」のコピーなので、編集は afterChange で元の行へ書き戻す。
+  import Icon from "./Icon.svelte";
   import { onMount, untrack } from "svelte";
   import Handsontable from "handsontable";
   import "handsontable/styles/handsontable.min.css";
@@ -56,7 +57,7 @@
     const dirOk = role === "y" && app.module.direction !== "none" && app.module.objectiveKind === "number";
     const dir = ds.directions[col];
     const dirHtml = dirOk
-      ? `<span class="dir ${dir}" data-act="dir" title="クリックで 最大化 ⇄ 最小化">${dir === "max" ? "▲ 最大化" : "▼ 最小化"}</span>`
+      ? `<span class="dir ${dir}" data-act="dir" title="クリックで 最大化 ⇄ 最小化">${dir === "max" ? "▲ 最大" : "▼ 最小"}</span>`
       : "";
     return `<div class="colh ${role}"><span class="chip ${role}" data-act="role" title="クリックで役割を切替（説明変数 → 目的変数 → 使わない）">${ROLE_LABEL[role]}</span><span class="cname" data-col="${col}" title="${esc(ds.header[col])}（ダブルクリックで列名を変更）">${esc(ds.header[col])}</span>${dirHtml}</div>`;
   }
@@ -181,9 +182,9 @@
           col_rename: { name: "列名を変更", callback: () => withCol((c) => app.renameColumn(c)), hidden: () => !colSelected() },
           col_delete: { name: "列を削除", callback: () => withCol((c) => app.deleteColumn(c)), hidden: () => !colSelected() },
           spc: "---------",
-          role_x: { name: "🔵 説明変数にする", callback: (_k: string, sel: Sel) => setRoleSel(sel, "x"), hidden: () => !colSelected() },
-          role_y: { name: "🟠 目的変数にする", callback: (_k: string, sel: Sel) => setRoleSel(sel, "y"), hidden: () => !colSelected() },
-          role_ignore: { name: "⚪ 使わない", callback: (_k: string, sel: Sel) => setRoleSel(sel, "ignore"), hidden: () => !colSelected() },
+          role_x: { name: "説明変数にする", callback: (_k: string, sel: Sel) => setRoleSel(sel, "x"), hidden: () => !colSelected() },
+          role_y: { name: "目的変数にする", callback: (_k: string, sel: Sel) => setRoleSel(sel, "y"), hidden: () => !colSelected() },
+          role_ignore: { name: "使わない", callback: (_k: string, sel: Sel) => setRoleSel(sel, "ignore"), hidden: () => !colSelected() },
           sp1: "---------",
           sort_asc: { name: "昇順で並べ替え", callback: (_k: string, sel: Sel) => sortBy(sel, "asc") },
           sort_desc: { name: "降順で並べ替え", callback: (_k: string, sel: Sel) => sortBy(sel, "desc") },
@@ -291,7 +292,7 @@
   <div class="grid" bind:this={el}></div>
   <!-- Google スプレッドシートのように、表の下で行を足せるようにする -->
   <div class="addbar">
-    <button class="small" onclick={() => app.addRows(addCount)}>＋ 行を追加</button>
+    <button class="small" onclick={() => app.addRows(addCount)}><Icon name="plus" size={14} />行を追加</button>
     <input type="number" min="1" max="10000" bind:value={addCount} aria-label="追加する行数" />
     <span class="muted">行を末尾に</span>
     <span class="grow"></span>
@@ -302,16 +303,23 @@
 <style>
   .wrap { position: absolute; inset: 0; display: flex; flex-direction: column; }
   .grid { flex: 1; min-height: 0; position: relative; }
-  .addbar { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-top: 1px solid var(--line); font-size: 12px; background: #fff; }
+  .addbar { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-top: 1px solid var(--line); font-size: 12px; background: #fff; }
   .addbar input { width: 64px; padding: 2px 6px; font-size: 12px; }
   .addbar .grow { flex: 1; }
-  .addbar .hint { font-size: 11px; }
+  .addbar .hint { color: var(--faint); }
 
-  /* ---- 見出し */
-  .grid :global(.colh) { display: flex; align-items: center; gap: 5px; justify-content: flex-start; overflow: hidden; }
-  .grid :global(.colh .chip) { cursor: pointer; user-select: none; }
-  .grid :global(.colh .chip:hover) { filter: brightness(0.95); box-shadow: 0 0 0 2px rgba(59, 91, 219, 0.15); }
-  .grid :global(.colh .cname) { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  /* ---- 表全体: 罫線は薄く、見出しは淡い地 */
+  .grid :global(.handsontable td),
+  .grid :global(.handsontable th) { border-color: var(--line-soft) !important; }
+  .grid :global(.handsontable thead th),
+  .grid :global(.handsontable tbody th) { background: #fbfcfc; color: var(--faint); }
+  .grid :global(.handsontable thead th) { border-bottom-color: var(--line) !important; }
+
+  /* ---- 見出し: 列名＋小さな役割のチップ */
+  .grid :global(.colh) { display: flex; align-items: center; gap: 6px; justify-content: flex-start; overflow: hidden; padding: 0 2px; }
+  .grid :global(.colh .chip) { cursor: pointer; user-select: none; font-size: 11px; line-height: 18px; padding: 0 5px; }
+  .grid :global(.colh .chip:hover) { box-shadow: 0 0 0 2px rgba(14, 110, 107, 0.18); }
+  .grid :global(.colh .cname) { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
   .grid :global(.colh.ignore .cname) { color: var(--faint); text-decoration: line-through; }
   .grid :global(.colh.pred .cname) { color: var(--pred); font-weight: 500; }
   .grid :global(.colh .dir) {
@@ -321,30 +329,22 @@
     padding: 0 4px;
     cursor: pointer;
     color: var(--y);
-    border: 1px solid #f6d3ad;
-    background: #fff;
     white-space: nowrap;
   }
   .grid :global(.colh .dir:hover) { background: var(--y-bg); }
-  .grid :global(.rank) { color: #b07d00; font-weight: 700; }
+  .grid :global(.rank) { color: var(--proposal-ink); font-weight: 700; }
 
-  /* ---- 列の色（見出しの下線で役割を示す） */
-  .grid :global(th:has(.colh.x)) { box-shadow: inset 0 -3px 0 var(--x); }
-  .grid :global(th:has(.colh.y)) { box-shadow: inset 0 -3px 0 var(--y); }
-  .grid :global(th:has(.colh.pred)) { box-shadow: inset 0 -3px 0 var(--pred); }
-
-  /* ---- セル: 役割と行の状態 */
+  /* ---- セル: 役割と行の状態（地模様は使わず、淡い地色だけ） */
   .grid :global(td.cell-x),
   .grid :global(td.cell-y),
   .grid :global(td.cell-pred) { text-align: right; font-variant-numeric: tabular-nums; }
-  .grid :global(td.cell-y) { background: #fffaf4; font-weight: 600; color: #8a4b08; }
+  .grid :global(td.cell-y) { background: #fff; font-weight: 600; color: var(--text); }
   .grid :global(td.cell-ignore) { color: var(--faint); }
-  .grid :global(td.cell-pred) { background: #faf8fe; color: var(--pred); }
+  .grid :global(td.cell-pred) { color: var(--pred); }
   .grid :global(td.row-pending.cell-x) { color: var(--muted); }
-  .grid :global(td.row-pending.cell-y) {
-    background: repeating-linear-gradient(45deg, #fffaf4, #fffaf4 4px, #fbf1e4 4px, #fbf1e4 8px);
-  }
+  .grid :global(td.row-pending.cell-y) { background: var(--y-cell); }
   .grid :global(td.row-partial.cell-y) { background: var(--warn-bg); }
   .grid :global(td.row-proposal) { background-color: var(--proposal-bg) !important; background-image: none !important; }
   .grid :global(td.row-proposal.cell-x) { color: var(--text); font-weight: 600; }
+  .grid :global(td.row-proposal.row-pending.cell-y) { background: #fff !important; box-shadow: inset 0 0 0 1.5px var(--y); }
 </style>

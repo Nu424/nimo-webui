@@ -2,6 +2,7 @@
   // 設定フォーム。modules.ts のパラメータ定義から自動で組み立てる。
   import { app } from "../lib/app.svelte";
   import { visibleOptions, type ParamDef } from "../lib/modules";
+  import Icon from "./Icon.svelte";
 
   const mod = $derived(app.module);
   const ctx = $derived(app.context!);
@@ -93,12 +94,11 @@
 
 <div class="form">
   <div class="field">
-    <div class="label">{mod.proposesNewRows ? "傾斜の分割数（提案数）" : "提案数（次に実験する数）"}</div>
+    <div class="label">{mod.proposesNewRows ? "傾斜の分割数（提案数）" : "提案数"}<span>{mod.proposesNewRows ? "" : "1 回の実験でまとめて試せる数"}</span></div>
     <div class="stepper">
-      <button class="small" onclick={() => { app.nProposals = Math.max(1, (app.nProposals || 1) - 1); app.scheduleSave(); }} aria-label="減らす">−</button>
+      <button onclick={() => { app.nProposals = Math.max(1, (app.nProposals || 1) - 1); app.scheduleSave(); }} aria-label="減らす"><Icon name="minus" size={14} /></button>
       <input type="number" min="1" bind:value={app.nProposals} onchange={() => app.scheduleSave()} />
-      <button class="small" onclick={() => { app.nProposals = (app.nProposals || 0) + 1; app.scheduleSave(); }} aria-label="増やす">＋</button>
-      <span class="muted help-inline">1 回の実験でまとめて試せる数</span>
+      <button onclick={() => { app.nProposals = (app.nProposals || 0) + 1; app.scheduleSave(); }} aria-label="増やす"><Icon name="plus" size={14} /></button>
     </div>
   </div>
 
@@ -107,21 +107,21 @@
   {#if mod.direction !== "none" && ctx.nObjectives > 0}
     <div class="field">
       <div class="label">良い方向</div>
-      <div class="dirs">
-        {#each app.summary?.yCols ?? [] as c}
-          {@const d = app.dataset!.directions[c]}
-          <button class="small dir" class:min={d === "min"} onclick={() => app.setDirection(c, d === "max" ? "min" : "max")}>
-            <span class="chip y">{app.dataset!.header[c]}</span>
-            {d === "max" ? "▲ 大きいほど良い" : "▼ 小さいほど良い"}
-          </button>
-        {/each}
-      </div>
-      <div class="help">クリックで切替（表の見出しからも変えられます）</div>
+      {#each app.summary?.yCols ?? [] as c}
+        {@const d = app.dataset!.directions[c]}
+        <div class="dirrow">
+          <span class="yn" title={app.dataset!.header[c]}><i class="mark y"></i><span class="ynt">{app.dataset!.header[c]}</span></span>
+          <div class="seg" role="group">
+            <button class:on={d === "max"} aria-pressed={d === "max"} onclick={() => app.setDirection(c, "max")}>▲ 大きいほど良い</button>
+            <button class:on={d === "min"} aria-pressed={d === "min"} onclick={() => app.setDirection(c, "min")}>▼ 小さいほど良い</button>
+          </div>
+        </div>
+      {/each}
     </div>
   {/if}
 
   <details>
-    <summary>詳細設定</summary>
+    <summary><Icon name="right" size={14} />詳細設定</summary>
     {#each advanced as p (p.key)}{@render field(p)}{/each}
     <div class="field">
       <div class="label">乱数の種（再現したいとき）</div>
@@ -142,19 +142,26 @@
 </div>
 
 <style>
-  .form { display: grid; gap: 12px; }
-  .field { display: grid; gap: 4px; }
-  .label { font-size: 12px; font-weight: 600; }
-  .help { font-size: 11px; color: var(--muted); line-height: 1.5; }
-  .help-inline { font-size: 11px; }
-  .stepper { display: flex; align-items: center; gap: 4px; }
-  .stepper input { width: 56px; text-align: center; }
-  .ranges { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 4px 6px; align-items: center; }
+  .form { display: grid; gap: 16px; }
+  .field { display: grid; gap: 6px; }
+  .label { font-size: 13px; font-weight: 600; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .label span { font-weight: 400; font-size: 12px; color: var(--faint); }
+  .help { font-size: 12px; color: var(--muted); line-height: 1.55; }
+  .stepper { display: inline-flex; align-items: stretch; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; width: fit-content; }
+  .stepper button { width: 32px; padding: 0; border-radius: 0; background: #fff; box-shadow: none; color: var(--muted); }
+  .stepper input { width: 52px; text-align: center; border: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); border-radius: 0; font-weight: 600; height: 30px; }
+  .ranges { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 6px; align-items: center; }
   .ranges input { width: 100%; }
   .checks { display: flex; flex-wrap: wrap; gap: 4px 12px; }
   .check { font-size: 12px; display: inline-flex; gap: 4px; align-items: center; }
-  .dirs { display: flex; flex-wrap: wrap; gap: 6px; }
-  .dir { display: inline-flex; align-items: center; gap: 6px; }
-  details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-  details[open] { display: grid; gap: 12px; }
+  .dirrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .yn { color: var(--y); font-weight: 600; display: inline-flex; align-items: center; min-width: 0; }
+  .ynt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .seg { display: inline-flex; background: var(--surface); border-radius: 8px; padding: 3px; box-shadow: inset 0 0 0 1px var(--line); flex: none; }
+  .seg button { padding: 2px 9px; border-radius: 6px; background: transparent; box-shadow: none; color: var(--muted); font-size: 12px; }
+  .seg button.on { background: #fff; color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 1px var(--line); }
+  details summary { cursor: pointer; font-size: 12px; color: var(--muted); list-style: none; display: flex; align-items: center; gap: 4px; }
+  details summary::-webkit-details-marker { display: none; }
+  details[open] summary :global(.icon) { transform: rotate(90deg); }
+  details[open] { display: grid; gap: 14px; }
 </style>

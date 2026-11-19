@@ -4,12 +4,13 @@
   import CandidateGrid from "./CandidateGrid.svelte";
   import ProposalsView from "./ProposalsView.svelte";
   import ChartView from "./ChartView.svelte";
+  import Icon, { type IconName } from "./Icon.svelte";
 
   const s = $derived(app.summary);
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "input", label: "候補表" },
-    { id: "proposals", label: "提案" },
-    { id: "chart", label: "グラフ" },
+  const tabs: { id: Tab; label: string; icon: IconName }[] = [
+    { id: "input", label: "候補表", icon: "table" },
+    { id: "proposals", label: "提案", icon: "spark" },
+    { id: "chart", label: "グラフ", icon: "chart" },
   ];
   const badge = (id: Tab) =>
     id === "input" ? (s ? `${s.nRows}` : "") : id === "proposals" ? (app.lastRun ? `${app.lastRun.proposals.length}` : "") : "";
@@ -22,36 +23,25 @@
     <div class="tabs" role="tablist">
       {#each tabs as t}
         <button role="tab" class="tab" class:active={app.tab === t.id} aria-selected={app.tab === t.id} onclick={() => (app.tab = t.id)}>
-          {t.label}
+          <Icon name={t.icon} />{t.label}
           {#if badge(t.id)}<span class="badge" class:hot={t.id === "proposals"}>{badge(t.id)}</span>{/if}
         </button>
       {/each}
       <div class="spacer"></div>
       {#if app.tab === "input"}
         <div class="legend">
-          <span class="chip x">説明変数</span>
-          <span class="chip y">目的変数</span>
-          <span class="chip ignore">使わない</span>
-          {#if app.proposedRows.size}<span class="chip proposal">★ 提案</span>{/if}
+          <span><i class="mark x"></i>説明変数</span>
+          <span><i class="mark y"></i>目的変数</span>
+          {#if app.dataset.roles.some((r) => r === "ignore")}<span><i class="mark ignore"></i>使わない</span>{/if}
+          {#if app.proposedRows.size}<span><span class="star">★</span>提案</span>{/if}
           {#if app.lastRun?.predictions && !app.runStale}
-            <label class="toggle"><input type="checkbox" bind:checked={app.settings.showPredictions} onchange={() => app.scheduleSave()} /> 予測を表示</label>
+            <label class="toggle"><input type="checkbox" bind:checked={app.settings.showPredictions} onchange={() => app.scheduleSave()} /><i class="mark pred"></i>予測</label>
           {/if}
         </div>
+        <span class="tsep"></span>
+        <button class="ghost small" onclick={() => (app.generatorOpen = "append")} title="変数の範囲・刻みから、候補の組み合わせを網羅的に作って追加する"><Icon name="wand" size={15} />候補を生成</button>
       {/if}
     </div>
-
-    {#if app.showRoleNotice && app.tab === "input" && s}
-      <div class="notice">
-        <span>
-          🔎 列の役割を自動で決めました:
-          <span class="chip x">説明変数 {s.xCols.length}</span>
-          <span class="chip y">目的変数 {s.yCols.map((c) => app.dataset!.header[c]).join("・") || "なし"}</span>
-          {#if app.dataset.roles.some((r) => r === "ignore")}<span class="chip ignore">使わない {app.dataset.roles.filter((r) => r === "ignore").length}</span>{/if}
-          違っていれば、見出しのチップをクリックして直してください。
-        </span>
-        <button class="small" onclick={() => (app.showRoleNotice = false)}>OK</button>
-      </div>
-    {/if}
 
     <div class="body">
       {#if app.tab === "input"}
@@ -61,18 +51,31 @@
       {:else}
         <ChartView />
       {/if}
+      {#if app.showRoleNotice && app.tab === "input" && s}
+        <div class="notice" role="status">
+          <Icon name="info" size={18} />
+          <div>
+            <div>列の役割を自動で決めました</div>
+            <div class="sub">
+              説明変数 {s.xCols.length} 列・目的変数「{s.yCols.map((c) => app.dataset!.header[c]).join("・") || "なし"}」{#if app.dataset.roles.some((r) => r === "ignore")}・使わない {app.dataset.roles.filter((r) => r === "ignore").length} 列{/if}。
+              違っていれば、見出しのチップをクリックして直せます。
+            </div>
+          </div>
+          <button class="small" onclick={() => (app.showRoleNotice = false)}>OK</button>
+        </div>
+      {/if}
     </div>
 
     {#if s}
-      <footer class="status">
+      <footer class="status num">
         <span>{s.nRows} 行</span>
-        <span class="dot ok"></span><span>実験済み {s.nObserved}</span>
-        <span class="dot pending"></span><span>未実験 {s.nPending}</span>
-        {#if s.nPartial}<span class="dot partial"></span><span>一部のみ {s.nPartial}</span>{/if}
-        {#if s.nEmpty}<span class="dot empty"></span><span>空の行 {s.nEmpty}</span>{/if}
-        <span class="sep">|</span>
+        <span><i class="dot ok"></i>実験済み {s.nObserved}</span>
+        <span><i class="dot pending"></i>未実験 {s.nPending}</span>
+        {#if s.nPartial}<span><i class="dot partial"></i>一部のみ {s.nPartial}</span>{/if}
+        {#if s.nEmpty}<span><i class="dot empty"></i>空の行 {s.nEmpty}</span>{/if}
+        {#if app.proposedRows.size}<span><span class="star">★</span>提案 {app.proposedRows.size}</span>{/if}
+        <span class="spacer"></span>
         <span>説明変数 {s.xCols.length}・目的変数 {s.yCols.length}</span>
-
       </footer>
     {/if}
   </div>
@@ -80,62 +83,54 @@
 
 <style>
   .pane { display: flex; flex-direction: column; height: 100%; }
-  .tabs {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 6px 8px 0;
-    border-bottom: 1px solid var(--line);
-  }
+  .tabs { display: flex; align-items: center; gap: 2px; padding: 0 10px 0 6px; height: 48px; border-bottom: 1px solid var(--line); flex: none; }
   .tab {
-    border: none;
+    height: 48px;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none;
     border-bottom: 2px solid transparent;
-    border-radius: 6px 6px 0 0;
-    background: transparent;
-    padding: 7px 14px;
+    margin-bottom: -1px;
+    padding: 2px 12px 0;
     color: var(--muted);
     font-weight: 600;
+    gap: 7px;
   }
+  .tab:hover { color: var(--text); }
   .tab.active { color: var(--text); border-bottom-color: var(--accent); }
-  .badge {
-    display: inline-block;
-    margin-left: 4px;
-    font-size: 11px;
-    background: var(--line);
-    color: var(--muted);
-    border-radius: 999px;
-    padding: 0 6px;
-  }
-  .badge.hot { background: var(--proposal); color: #4a3700; }
+  .tab.active :global(.icon) { color: var(--accent); }
+  .badge { font-size: 12px; font-weight: 500; color: var(--faint); }
+  .badge.hot { color: var(--proposal-ink); background: var(--proposal-bg); border-radius: 999px; padding: 0 7px; font-weight: 600; }
   .spacer { flex: 1; }
-  .legend { display: flex; align-items: center; gap: 6px; padding-bottom: 6px; }
-  .toggle { display: inline-flex; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); margin-left: 6px; cursor: pointer; }
-  .notice {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    justify-content: space-between;
-    padding: 7px 12px;
-    font-size: 12px;
-    background: var(--accent-weak);
-    border-bottom: 1px solid #d3dcfb;
-  }
-  .notice .chip { margin: 0 2px; }
+  .legend { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); margin-right: 4px; }
+  .legend > span, .toggle { display: inline-flex; align-items: center; }
+  .star { color: var(--proposal); margin-right: 4px; }
+  .toggle { gap: 5px; cursor: pointer; }
+  .toggle .mark { margin-right: 0; }
+  .tsep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
   .body { flex: 1; min-height: 0; position: relative; }
-  .status {
+  .notice {
+    position: absolute;
+    top: 50px;
+    right: 16px;
+    z-index: 300;
+    max-width: 400px;
     display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
-    font-size: 12px;
-    border-top: 1px solid var(--line);
-    color: var(--text);
-    background: #fafbfc;
+    gap: 12px;
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow-pop);
+    padding: 12px 14px;
   }
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 6px; }
+  .notice > :global(.icon) { color: var(--accent); margin-top: 2px; }
+  .notice .sub { color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .status { display: flex; align-items: center; gap: 14px; height: 34px; padding: 0 14px; font-size: 12px; border-top: 1px solid var(--line); color: var(--muted); flex: none; }
+  .status > span { display: inline-flex; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
   .dot.ok { background: var(--ok); }
   .dot.pending { background: var(--line-strong); }
   .dot.partial { background: var(--warn); }
   .dot.empty { background: #fff; border: 1px solid var(--line-strong); }
-  .sep { color: var(--line-strong); margin: 0 4px; }
 </style>
