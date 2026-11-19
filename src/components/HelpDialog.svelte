@@ -70,7 +70,7 @@
           <li><kbd>Ctrl</kbd>+<kbd>S</kbd> 候補表を書き出し</li>
           <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> 表の編集を元に戻す / やり直す</li>
           <li>表の右クリックで、行の削除・列の追加・列名の変更・列の削除（削除は通知の「元に戻す」で戻せます）</li>
-          <li>表の下の「＋ 行を追加」で、末尾に行を足せます</li>
+          <li>表の下の「行を追加」で、末尾に行を足せます</li>
           <li>Excel のセル範囲をコピーして、表に <kbd>Ctrl</kbd>+<kbd>V</kbd> で貼り付けられます</li>
         </ul>
       {:else if app.helpOpen === "input"}
@@ -106,7 +106,9 @@
         <p>次に実験すると良い条件が、良い順に <span class="chip proposal">★1</span> <span class="chip proposal">★2</span> … と並びます。「行」は候補表の行番号です。</p>
         <ul>
           <li>実験したら、<span class="chip y">目的変数</span> の欄に結果を入力します。候補表の同じ行に書き込まれます。</li>
-          <li>「⬇ 提案を CSV で保存」で、提案の行だけを候補表と同じ列構成で保存できます（実験ノートや装置への受け渡しに）。</li>
+          <li>「予測」の横棒は、● が予測値、帯が不確かさ（± σ）、破線がこの提案より前の最良値です。結果を入力すると ◆ が重なり、予測との差が見られます。</li>
+          <li>すべて入力すると、もう一度「提案を出す」で次の提案へ進めます。</li>
+          <li>「CSV で保存」で、提案の行だけを候補表と同じ列構成で保存できます（実験ノートや装置への受け渡しに）。</li>
         </ul>
         <h3>予測の列（<span class="chip pred">予測</span>）</h3>
         <p>ベイズ最適化などの手法は、すべての候補について次の値を計算します。候補表の右側と提案タブに表示されます。</p>
@@ -133,7 +135,7 @@
         </ul>
       {:else if app.helpOpen === "modules"}
         <h2>手法の選び方</h2>
-        <p>「やりたいこと」から選びます。名前をクリックすると、その手法に切り替わります。</p>
+        <p>「やりたいこと」から選びます。名前をクリックすると、その手法に切り替わります（右のパネルの「変更」からも、説明を見比べながら選べます）。</p>
         {#each GOALS as g}
           <h3><Icon name={g.icon} /> {g.label}</h3>
           <div class="mods">
@@ -175,10 +177,10 @@
   }
   dialog::backdrop { background: rgba(16, 24, 40, 0.4); }
   .box { display: grid; grid-template-columns: 200px 1fr; height: 100%; }
-  nav { background: #f6f7f9; border-right: 1px solid var(--line); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+  nav { background: var(--surface); border-right: 1px solid var(--line); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
   nav .title { font-weight: 700; padding: 0 10px 10px; }
-  nav button { text-align: left; }
-  nav button.active { background: #fff; box-shadow: var(--shadow); font-weight: 600; }
+  nav button { justify-content: flex-start; text-align: left; }
+  nav button.active { background: #fff; box-shadow: inset 0 0 0 1px var(--line); color: var(--accent-ink); font-weight: 600; }
   .grow { flex: 1; }
   .ver { font-size: 11px; padding: 0 10px; line-height: 1.6; }
   article { position: relative; overflow: auto; padding: 22px 32px 32px; line-height: 1.75; font-size: 14px; }
@@ -206,7 +208,7 @@
   .ex th.x { background: var(--x-bg); color: var(--x); }
   .ex th.y { background: var(--y-bg); color: var(--y); }
   .ex th.ig { background: var(--ignore-bg); color: var(--ignore); }
-  .ex td.blank { background: repeating-linear-gradient(45deg, #fff, #fff 4px, #f6f7f9 4px, #f6f7f9 8px); }
+  .ex td.blank { background: var(--y-cell); }
   .mods { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .mod { display: flex; gap: 10px; align-items: center; text-align: left; font-size: 12px; line-height: 1.5; }
+  .mod { display: flex; gap: 10px; align-items: center; justify-content: flex-start; white-space: normal; text-align: left; font-size: 12px; line-height: 1.5; }
 </style>
