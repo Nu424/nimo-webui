@@ -53,7 +53,7 @@ Node.js 20 以上（Vite 6 を使用）。
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173/
+npm run dev          # http://127.0.0.1:5199/
 npm run check        # 型チェック（svelte-check）
 npm test             # 候補生成の単体テスト
 npm run build        # dist/ に静的ファイルを出力（相対パスなのでどこに置いても動く）
