@@ -17,9 +17,13 @@ OUT.mkdir(parents=True, exist_ok=True)
 rng = random.Random(42)
 
 
-def write(name, header, rows, truth, n_observed, title, description, module, goal):
-    """rows: 説明変数の値, truth: 目的変数の真の値（行ごとのリスト）"""
-    observed = set(rng.sample(range(len(rows)), n_observed))
+def write(name, header, rows, truth, n_observed, title, description, module, goal, observed=None):
+    """rows: 説明変数の値, truth: 目的変数の真の値（行ごとのリスト）
+    observed: 実験済みにする説明変数の値の一覧。省略すると n_observed 行をランダムに選ぶ"""
+    if observed is None:
+        observed = set(rng.sample(range(len(rows)), n_observed))
+    else:
+        observed = {rows.index(o) for o in observed}
     with open(OUT / f"{name}.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(header)
@@ -83,18 +87,22 @@ samples.append(write("ternary_phase", ["A", "B", "C", "相"], rows, truth, 6,
                      "三元系の相図", "A-B-C の組成 231 点で、どの組成がどの相（α/β/γ）になるかの境界を描く（目的変数はラベル）",
                      "PDC", "classify"))
 
-# 4. 組成傾斜膜（COMBI）: 百分率の整数
+# 4. クッキーの配合（COMBI）: 薄力粉・バター・砂糖の配合（%、合計 100）→ 試食のおいしさ（100 点満点）
+#    いちばんの山はバターたっぷりのしっとり系（45/35/20）、2 番目はさっくり系（60/20/20）
 rows, truth = [], []
 for i in range(0, 101, 5):
     for j in range(0, 101 - i, 5):
         k = 100 - i - j
-        a, b, c = i / 100, j / 100, k / 100
-        y = 3.0 * a * b + 1.2 * b * c + 0.5 * c + noise(0.02)
+        rich = 90 * math.exp(-((i - 45) / 14) ** 2 - ((j - 35) / 10) ** 2 - ((k - 20) / 9) ** 2)
+        crisp = 70 * math.exp(-((i - 60) / 10) ** 2 - ((j - 20) / 8) ** 2 - ((k - 20) / 8) ** 2)
+        y = max(rich, crisp) + 5 + noise(1.0)
         rows.append((i, j, k))
-        truth.append([round(y, 3)])
-samples.append(write("combi_film", ["Pt", "Pd", "Ru", "活性"], rows, truth, 5,
-                     "組成傾斜膜の設計", "Pt-Pd-Ru の組成（%）から、活性が高い領域へ 2 元素の傾斜膜を提案する",
-                     "COMBI", "combi"))
+        truth.append([round(min(100, max(0, y)), 1)])
+samples.append(write("cookie_recipe", ["薄力粉_%", "バター_%", "砂糖_%", "おいしさ_点"], rows, truth, 5,
+                     "おいしいクッキーの配合", "薄力粉・バター・砂糖の配合（%）231 通りから、試食で最もおいしい配合を目指して、2 つの材料の比を少しずつ変えた試作を提案する",
+                     "COMBI", "combi",
+                     # 最初の試作（よくある配合の周り。いちばんの山はまだ試していない）
+                     observed=[(70, 15, 15), (60, 30, 10), (50, 25, 25), (40, 30, 30), (80, 10, 10)]))
 
 with open(OUT / "index.json", "w", encoding="utf-8") as f:
     json.dump(samples, f, ensure_ascii=False, indent=2)
