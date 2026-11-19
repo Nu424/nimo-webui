@@ -31,7 +31,8 @@ const CASES = [
   ["ternary_phase.csv", "PDC", {}],
   ["ternary_phase.csv", "PDC", { estimation: "LS", sampling: "EA" }],
   ["ternary_phase.csv", "BALD", {}],
-  ["cookie_recipe.csv", "COMBI", {}],
+  ["combi_film.csv", "COMBI", {}],
+  ["cookie_recipe.csv", "PHYSBO", { score: "EI" }],
 ];
 
 const browser = await chromium.launch();

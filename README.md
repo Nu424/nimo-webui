@@ -73,7 +73,7 @@ npm run build        # dist/ に静的ファイルを出力（相対パスなの
 目視確認・テスト（Playwright。初回は `npx playwright install chromium`。開発サーバーを起動したまま別のシェルで）:
 
 ```bash
-npm run smoke                                  # 全 14 手法 × 設定パターン 26 件を、サンプルに対して実際に実行
+npm run smoke                                  # 全 14 手法 × 設定パターン 27 件を、サンプルに対して実際に実行
 npm run shot -- <url> <out.png> [待機ms] [幅x高さ] [--script=操作.mjs]   # スクリーンショット
 ```
 

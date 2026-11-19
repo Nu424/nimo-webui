@@ -27,12 +27,21 @@
     "rows": 231
   },
   {
+    "file": "combi_film.csv",
+    "truth": "combi_film.truth.csv",
+    "title": "組成傾斜膜の設計",
+    "description": "Pt-Pd-Ru の組成（%）から、活性が高い領域へ 2 元素の傾斜膜を提案する",
+    "module": "COMBI",
+    "goal": "combi",
+    "rows": 231
+  },
+  {
     "file": "cookie_recipe.csv",
     "truth": "cookie_recipe.truth.csv",
     "title": "おいしいクッキーの配合",
-    "description": "薄力粉・バター・砂糖の配合（%）231 通りから、試食で最もおいしい配合を目指して、2 つの材料の比を少しずつ変えた試作を提案する",
-    "module": "COMBI",
-    "goal": "combi",
+    "description": "薄力粉・バター・砂糖の配合（%）231 通りから、試食の点数を手がかりに、次に焼く配合を提案してもらう（目的変数 1 つ）",
+    "module": "PHYSBO",
+    "goal": "optimize",
     "rows": 231
   }
 ]

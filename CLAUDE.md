@@ -21,7 +21,7 @@ npm run dev                        # http://127.0.0.1:5199/
 |---|---|---|
 | `npm run check` | 型チェック（svelte-check）。0 件を保つ | 毎回 |
 | `npm test` | 候補生成（`src/lib/data/generate.ts`）の単体テスト | 生成まわりを触ったら |
-| `npm run smoke` | 全 14 手法 × 設定パターン 26 件を、画面の状態経由で実際に nimo 実行 | nimo 呼び出し・データの組み立て・結果の対応づけを触ったら |
+| `npm run smoke` | 全 14 手法 × 設定パターン 27 件を、画面の状態経由で実際に nimo 実行 | nimo 呼び出し・データの組み立て・結果の対応づけを触ったら |
 | `npm run shot -- <url> <out.png> [待機ms] [幅x高さ] [--script=操作.mjs]` | スクリーンショット。`--script` で操作してから撮る | 見た目を変えたら必ず |
 | `npm run build` | 本番ビルド（`dist/`、相対パス） | push 前 |
 
